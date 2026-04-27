@@ -34,6 +34,8 @@ from compliance_check import (  # noqa: E402
     check_substantial_response,
     check_template_residues,
     check_font_safety,
+    check_format,
+    should_section_only,
     load_matrix,
     read_docx_text,
 )
@@ -144,6 +146,61 @@ def main() -> int:
     print(f"  [{'PASS' if ok else 'FAIL'}] case_9_clean_font_safety_passes")
     if not ok:
         print(f"           clean docx issues={issues_clean}")
+        fails += 1
+
+    # ---- V3-5 case 10-13: --section-only 开关 ----
+
+    # ---- case 10: should_section_only 文件名自动检测 (tender_response 命中) ----
+    cases += 1
+    actual = should_section_only("projects/demo/output/tender_response.docx", explicit_flag=False)
+    ok = actual is True
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_10_should_section_only_tender_response_auto")
+    if not ok:
+        print(f"           expected True, actual={actual}")
+        fails += 1
+
+    # ---- case 11: should_section_only final_response → 全项 ----
+    cases += 1
+    actual = should_section_only("final_response.docx", explicit_flag=False)
+    ok = actual is False
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_11_should_section_only_final_response_full")
+    if not ok:
+        print(f"           expected False, actual={actual}")
+        fails += 1
+
+    # ---- case 12: should_section_only 显式 flag 覆盖 ----
+    cases += 1
+    actual = should_section_only("anything.docx", explicit_flag=True)
+    ok = actual is True
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_12_should_section_only_explicit_override")
+    if not ok:
+        print(f"           expected True, actual={actual}")
+        fails += 1
+
+    # ---- case 13: check_format(section_only=True) 跳过封面/目录关键词检查 ----
+    cases += 1
+    # 构造分章节产物文本(不含封面"投标文件"/"投标人"和目录"目录"关键词)
+    chapter_only_text = "第一章 技术方案\n方案细节描述\n第二章 实施计划\n计划细节"
+    chapter_only_info = {
+        "section_margins": [
+            {"top_cm": 2.54, "bottom_cm": 2.54, "left_cm": 3.17, "right_cm": 3.17}
+        ],
+        "heading_count": 2,
+    }
+    issues_full = check_format(chapter_only_text, chapter_only_info, section_only=False)
+    issues_section = check_format(chapter_only_text, chapter_only_info, section_only=True)
+    # 全项模式应有 missing 封面/目录;section_only 模式应没有
+    has_full_missing = any(
+        "missing" in i and ("封面" in i or "目录" in i) for i in issues_full
+    )
+    has_section_missing = any(
+        "missing" in i and ("封面" in i or "目录" in i) for i in issues_section
+    )
+    ok = has_full_missing and not has_section_missing
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_13_check_format_section_only_skips_cover_toc")
+    if not ok:
+        print(f"           full issues: {issues_full}")
+        print(f"           section_only issues: {issues_section}")
         fails += 1
 
     print()

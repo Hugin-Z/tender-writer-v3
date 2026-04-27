@@ -259,7 +259,26 @@ def check_template_residues(docx_text: str) -> list[str]:
     return found
 
 
-def check_format(docx_text: str, format_info: dict) -> list[str]:
+def should_section_only(docx_filename: str, explicit_flag: bool) -> bool:
+    """V3-5:决定本次 compliance_check 是否走 section-only 模式。
+
+    优先级:
+    1. 用户显式 --section-only → True
+    2. 文件名含 'tender_response' 且不含 'final_response' → True
+    3. 否则 False(全项检查;final_response.docx 等终端产物走此路径)
+
+    section-only 模式跳过 FORMAT_CHECKS 字典(封面/目录关键词),
+    保留 section margins + heading count 检查。
+    """
+    if explicit_flag:
+        return True
+    name = docx_filename.lower()
+    if "tender_response" in name and "final_response" not in name:
+        return True
+    return False
+
+
+def check_format(docx_text: str, format_info: dict, section_only: bool = False) -> list[str]:
     issues: list[str] = []
     expected_margins = {"top_cm": 2.54, "bottom_cm": 2.54, "left_cm": 3.17, "right_cm": 3.17}
 
@@ -275,11 +294,14 @@ def check_format(docx_text: str, format_info: dict) -> list[str]:
                 elif abs(actual - expected) > 0.05:
                     issues.append(f"section[{index}] {key} 实际 {actual} cm，期望 {expected} cm")
 
-    normalized_doc = normalize_for_match(docx_text)
-    for check_name, keywords in FORMAT_CHECKS.items():
-        if not all(normalize_for_match(keyword) in normalized_doc for keyword in keywords):
-            kw_list = ', '.join(keywords)
-            issues.append(f'missing {check_name} keywords: {kw_list}')
+    # V3-5:section-only 模式跳过封面/目录关键词检查
+    # (适用于 tender_response.docx 等分章节产物,完整封面/目录在终端 final_response.docx)
+    if not section_only:
+        normalized_doc = normalize_for_match(docx_text)
+        for check_name, keywords in FORMAT_CHECKS.items():
+            if not all(normalize_for_match(keyword) in normalized_doc for keyword in keywords):
+                kw_list = ', '.join(keywords)
+                issues.append(f'missing {check_name} keywords: {kw_list}')
 
     if format_info.get("heading_count", 0) == 0:
         issues.append("未检测到 Heading 样式标题，目录和层级结构可能未按 docx_builder 规范生成")
@@ -847,6 +869,11 @@ def main() -> None:
     parser.add_argument("docx_path", help="最终标书 docx 路径")
     parser.add_argument("matrix_csv", help="评分矩阵 CSV 路径")
     parser.add_argument("--out", default="output", help="报告输出目录，默认 output/")
+    parser.add_argument(
+        "--section-only", action="store_true",
+        help="V3-5:跳过封面/目录关键词检查(适用于 tender_response.docx 等分章节"
+             "产物)。文件名含 tender_response 时自动启用,本 flag 显式覆盖。",
+    )
     args = parser.parse_args()
 
     docx_path = Path(args.docx_path)
@@ -884,10 +911,19 @@ def main() -> None:
             if name and pm:
                 mode_map[name] = pm
 
+    # V3-5:决定是否走 section-only 模式
+    section_only = should_section_only(docx_path.name, args.section_only)
+    if section_only:
+        print(
+            f"[信息] section-only 模式启用(跳过封面/目录关键词检查;触发原因:"
+            f"{'显式 --section-only' if args.section_only else '文件名含 tender_response'})",
+            file=sys.stderr,
+        )
+
     coverage = check_coverage(docx_text, matrix, mode_map)
     substantial = check_substantial_response(docx_text, matrix)
     residues = check_template_residues(docx_text)
-    format_issues = check_format(docx_text, format_info)
+    format_issues = check_format(docx_text, format_info, section_only=section_only)
     # v2 补丁 2:字体安全检查(Normal 样式字体 + run 级 rFonts 白名单)
     font_issues = check_font_safety(docx_path)
     if font_issues:
