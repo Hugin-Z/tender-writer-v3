@@ -22,26 +22,30 @@ v2.0.0 / v2.0.1 已封板,v2.0.x 不再打补丁。所有 v2.0.x 期间登记但
 
 **现状**:scripts/assets_provider.py 当前只有 PlaceholderAssetsProvider,所有 lookup 返回占位 AssetRef,resolve 产出占位 docx。scripts/b_mode_fill.py 三种 source_type(inline_template / asset_lookup / self_drafted)全部产出占位段落。assets_provider.py 注释里登记 CuratedLocalAssetsProvider 和 MCPExternalAssetsProvider 为未来工作,V3 兑现前者。
 
-**做什么**:
+**做什么**(详见 plans/v3-1.md,Path A):
 
 - 新增 CuratedLocalAssetsProvider 类,实现 lookup 和 resolve
-- 扫 assets/<bidding_entity>/_curated/<asset_type>/ 按命名约定查找真实材料文件
-- 命名约定:<asset_type>_<标识>_<年份>.docx(如 资质证明_ISO9001_2025.docx)
-- lookup 多命中时停下让用户选(对齐 CLAUDE.md 红线 6 模式)
-- resolve 真实从 docx 提取段落、保留格式,不再用占位文字
-- 处理 PDF asset(预转 docx 或用 pdf2docx)
-- 在 manifest.yaml 增加 lookup_priority / year_filter 字段
-- b_mode_fill.py 的三个 handle* 函数:有真实 asset 时去掉占位文字
+- 扫现有结构 `assets/<类别>/<company_id>/`(类别 = 公司资质/团队简历/标准话术/类似业绩/通用图表 五类),沿用现有 `_inbox / _raw / curated .md` 三层模型,不引入新目录约定
+- 候选优先级:`_raw/<timestamp>_<original>.docx` 主选 → `_raw/<...>.pdf` 走 pdf2docx 转换 → `<resource>.md` 转段落兜底
+- 新建 `references/asset_type_mapping.yaml`,把 spec.asset_type / asset_query.type 映射到现有 5 类
+- lookup 多命中时停下让用户选(stdin 交互 + 对齐 CLAUDE.md 红线 6;非 tty 报错退出)
+- resolve 真实从 docx 复制段落文本(本期不保留格式/图片,留 V4)
+- PDF asset 走 pdf2docx 在线转换,失败降级 placeholder + 日志告警
+- 在 manifest.yaml 增加 lookup_priority / year_filter 字段(向后兼容,无字段走默认)
+- b_mode_fill.py `_handle_asset_lookup` 改造:真实命中时去掉占位文字(`_handle_inline_template` / `_handle_self_drafted` 留 V4)
+- 给 demo own_default 摄入最小 fixture asset(2-3 份 demo docx 入 `_raw`,git track),让 demo 重跑能验证 lookup 命中
 
 **完成判定**:
 
-- demo 重跑后,part_04 / part_08 的 assembled.docx 不再含"[此处插入 X 材料]"占位段落
+- demo 重跑 part_04 / part_08 后,assembled.docx 中含至少 1 段真实 asset 内容(来自 demo own_default 的 fixture asset),不再全是 PlaceholderAssetsProvider 的"[此处插入 X 材料]"占位
 - 多命中场景能交互停下让用户选
-- 单元测试覆盖 lookup 边界(0 命中 / 1 命中 / 多命中 / 年份过滤)
+- 单元测试覆盖 lookup 边界(0 命中 / 1 命中 / 多命中 / 年份过滤)≥10 case
+- manifest.yaml 新字段向后兼容(旧 manifest 不需回填)
+- references/asset_type_mapping.yaml 覆盖 demo 用到的所有 asset_type(无"无法映射"告警)
 
-**预估**:6-10 小时
+**预估**:8-12 小时(含 asset 映射表 + demo fixture 摄入)
 
-**依赖**:V3-2(需要测试基础设施先就位)
+**依赖**:V3-2(测试基础设施已就位 ✓)
 
 ### V3-2 · 测试覆盖从 1 → ≥10
 
