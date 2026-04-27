@@ -163,6 +163,12 @@ def main():
     )
     parser.add_argument('--project', required=True, help='项目名')
     parser.add_argument('--part', type=int, required=True, help='response_file_parts 索引')
+    parser.add_argument(
+        '--non-interactive',
+        action='store_true',
+        help='V3-1:CuratedLocalAssetsProvider 多命中时不弹 stdin 提示,'
+             '按 lookup_priority 自动选(适用于 CI / 自动化场景)',
+    )
     args = parser.parse_args()
 
     project_dir = ROOT / 'projects' / args.project
@@ -199,7 +205,19 @@ def main():
 
     provider_name = manifest.get('assets_provider', 'placeholder')
     from assets_provider import get_provider
-    provider = get_provider(provider_name)
+
+    # V3-1:把 brief.extracted.bidding_entity 透传给 provider 当 company_id,
+    # 让 CuratedLocalAssetsProvider 扫到正确公司目录。bidding_entity 缺省时
+    # 走 provider 自身的默认值(CuratedLocalAssetsProvider 默认 own_default)。
+    provider_kwargs: dict = {}
+    bidding_entity = (brief.get('extracted', {}) or {}).get('bidding_entity', '')
+    if provider_name == 'curated_local':
+        if bidding_entity:
+            provider_kwargs['company_id'] = bidding_entity
+        if args.non_interactive:
+            provider_kwargs['non_interactive'] = True
+
+    provider = get_provider(provider_name, **provider_kwargs)
 
     assembly_order = manifest.get('assembly_order', [])
     print(f"[信息] 组装 Part[{args.part}] '{part['name']}' (B 模式)"

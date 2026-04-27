@@ -1,5 +1,6 @@
 part_name: 其他资格证明文件
 production_mode: B
+assets_provider: curated_local
 source_anchor:
   type: text
   start_line: 91
@@ -53,4 +54,3 @@ assembly_order:
   - 企业规模类别(中型/小型/微型)
   - 加盖电子签章 + 日期
   format: 固定模板 + 变量(企业规模等),c_mode 模板填充能力可复用;本 Part 以 inline_template 方式占位,由投标方按真实企业数据填充
-assets_provider: placeholder

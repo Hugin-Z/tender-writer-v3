@@ -1,24 +1,26 @@
 # -*- coding: utf-8 -*-
 """
-make_demo_own_default_assets.py · 生成 demo own_default 占位 asset(V3-1)
+make_demo_own_default_assets.py · 生成 demo 用占位 asset(V3-1)
 
 为让 demo_cadre_training 项目跑 b_mode_fill 时能演示 CuratedLocalAssetsProvider
-真实命中,在 own_default 公司下摄入若干"DEMO PLACEHOLDER"标记的 docx。
+真实命中,在 demo 项目的 bidding_entity(own_demo)公司下摄入若干
+"DEMO PLACEHOLDER"标记的 docx。
 
 产出:
-- 公司资质/own_default/_raw/20250101_demo_business_license.docx
-- 公司资质/own_default/_raw/20250215_demo_iso9001.docx
-- 公司资质/own_default/_raw/20250420_demo_audit_report.docx
-- 公司资质/own_default/_raw/20250520_demo_tax_social_security.docx
-- 团队简历/own_default/_raw/20250301_demo_zhang_san.docx
-- 团队简历/own_default/_raw/20250315_demo_li_si.docx
+- 公司资质/own_demo/_raw/20250101_demo_business_license.docx
+- 公司资质/own_demo/_raw/20250215_demo_iso9001.docx
+- 公司资质/own_demo/_raw/20250420_demo_audit_report.docx
+- 公司资质/own_demo/_raw/20250520_demo_tax_social_security.docx
+- 团队简历/own_demo/_raw/20250301_demo_zhang_san.docx
+- 团队简历/own_demo/_raw/20250315_demo_li_si.docx
 
 每份 docx 内容明确标注"DEMO PLACEHOLDER, NOT REAL ASSET",防止误导用户认为是真实素材。
 真实使用时,删除这些 demo docx,通过正常摄入流程入库真实资料。
 
+注意:文件名保留脚本名为 make_demo_own_default_assets.py(commit 5 已入库),
+内部 COMPANY_ID 从 own_default 改为 own_demo(对齐 demo 项目实际 bidding_entity)。
+
 运行:
-    ./run_script.bat _generators/make_demo_own_default_assets.py
-    或:
     .venv/Scripts/python.exe assets/_generators/make_demo_own_default_assets.py
 """
 from __future__ import annotations
@@ -30,7 +32,7 @@ from docx import Document
 
 
 ASSETS_ROOT = Path(__file__).resolve().parent.parent
-COMPANY_ID = "own_default"
+COMPANY_ID = "own_demo"  # V3-1: demo 项目的 bidding_entity 是 own_demo,不是 own_default
 DEMO_BANNER = "==== DEMO PLACEHOLDER, NOT REAL ASSET ===="
 
 

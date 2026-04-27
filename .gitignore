@@ -48,9 +48,9 @@ assets/**/_inbox/*
 !assets/**/_inbox/.gitkeep
 assets/**/_raw/*
 !assets/**/_raw/.gitkeep
-# V3-1 例外:own_default 下 demo_ 标识 fixture 入库(供 b_mode_fill demo 验证),
-# 真实 own_xxx / partner_xxx 公司的 _raw 仍受隐私保护
-!assets/**/own_default/_raw/*demo*.docx
+# V3-1 例外:own_* 公司下 demo_ 标识 fixture 入库(供 b_mode_fill demo 验证),
+# 真实 partner_* / ref_* 公司的 _raw 仍受隐私保护
+!assets/**/own_*/_raw/*demo*.docx
 
 # 素材摄入去重记录(运行时产物)
 assets/.ingest_history.json

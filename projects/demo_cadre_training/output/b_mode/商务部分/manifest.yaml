@@ -1,5 +1,6 @@
 part_name: 商务部分
 production_mode: B
+assets_provider: curated_local
 source_anchor:
   type: text
   start_line: 110
@@ -28,4 +29,3 @@ assembly_order:
   asset_query:
     type: 简历
     name: 团队成员简历
-assets_provider: placeholder
