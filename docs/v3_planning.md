@@ -256,10 +256,43 @@ v2.0.0 / v2.0.1 已封板,v2.0.x 不再打补丁。所有 v2.0.x 期间登记但
 ## 开发节奏
 
 - 一次只做一个 V3-N 项,不并行
-- 每完成一项,在本文档把状态从"进行中"改为"已完成",commit message 用 feat(v3-N): <项简述> 或 test(v3-N): <项简述>
+- 每完成一项,在本文档把状态从"进行中"改为"已完成",commit message 用 feat(v3-N) / test(v3-N) / fix(v3-N) / refactor(v3-N) / docs(v3-N) 格式
 - 本地 commit 累积,中间不 push 远程
 - 全部 12 项完成 + 自检全过后,一次 push + 打 v3.0.0 tag,届时 README / SKILL / changelog 一并对外更新
 - V3 不打中间小版本(v3.0.0-rc1 / v3.0.0-rc2 之类),封板就 v3.0.0
+
+### 审核节奏(分级审核协议)
+
+V3 期间审核位审核频率按 commit 风险分级,不是每个 commit 都贴审:
+
+- **低风险 commit**(自检通过即继续,不贴审)
+  - 纯 fixture 数据文件添加(anchor 文件本身、变形 fixture 数据)
+  - v3_planning.md 状态字段改动(待开始 → 进行中 / 进行中 → 已完成)
+  - .gitkeep / 空目录骨架
+  - 顶层 fixtures README.md 套用既定模板
+
+- **中风险 commit**(必须贴审)
+  - test_*.py 代码本身
+  - 变形 fixture 生成器脚本(_generators/mutate_*.py)
+  - tests/run_all.py 和 tests/README.md
+  - fixture 目录级 README(anchor 来源声明、用途声明)
+
+- **高风险 commit**(必须贴审,审核位严审)
+  - 任何动到非测试文件的 commit(scripts/ 下源码、CLAUDE.md / README.md / SKILL.md)
+  - V3-N 范围外的"顺手修"
+  - v3_planning.md 内容字段改动(不止状态字段)
+  - 新增 V3-N 项 / 拆分 V3-N 项
+
+子单元批审协议:
+
+- 每完成 V3-N 内的一个子单元(比如 "fixture 准备 + 对应 test 文件" = 一组 2-3 个 commit),把这一组的所有 git diff + commit message 一次性贴审
+- 审核位审完反馈一次,不通过则定位到具体 commit revert
+- 子单元划分由用户(规划位)和 Claude Code 协商确定,通常以"一个 test_*.py + 它的 fixture"为一个子单元
+
+V3-N 启动和收尾的强制审核点:
+
+- V3-N 启动:状态改"进行中"的 commit + V3-N 第一个子单元一起首次贴审,确保方向对
+- V3-N 收尾:状态改"已完成"的 commit **必须**贴审通过后才执行,不允许 Claude Code 自行标"已完成"
 
 ## 推荐开发顺序
 
