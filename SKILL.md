@@ -787,8 +787,8 @@ sub_mode 判据:filled 产物去向(投标方视角);非判据:项目级 CA / �
 
 **分流依据**:`manifest.yaml` 中 AI 判定的 `assembly_order[i].source_type`(三类参考值):
 
-- **inline_template**:招标文件给模板 + 变量占位(如基本情况表、信誉声明) → 借用 c_mode 填充能力(当前 B 模式基建阶段产占位段落,未来由 b_mode_fill 自动调 c_mode_fill)
-- **asset_lookup**:从 assets 库查供应商素材(如资质证明、业绩合同) → 走 `AssetsProvider.lookup + resolve`
+- **inline_template**:招标文件给模板 + 变量占位(如基本情况表、信誉声明) → 当前产占位段落,未来由 b_mode_fill 自动调 c_mode_fill 完成填充(留 V4)
+- **asset_lookup**:从 assets 库查供应商素材(如资质证明、业绩合同) → 走 `AssetsProvider.lookup + resolve`;V3-1 起 `CuratedLocalAssetsProvider` 默认扫 `assets/<类别>/<company_id>/_raw/` 真实命中,缺省走 `PlaceholderAssetsProvider` 占位
 - **self_drafted**:供应商自撰(如开放资料) → 产占位段落 "[本节需供应商自撰: <title>]"
 
 AI 遇到新形态可自造 source_type 值;b_mode_fill 遇未知值 raise ValueError 由用户 review 决定是否扩展工具链。
@@ -810,8 +810,12 @@ AI 遇到新形态可自造 source_type 值;b_mode_fill 遇未知值 raise Value
 
 **assets_provider 切换**:
 
-- 本轮(V61)固定 `placeholder`:所有 asset 查询返回占位,resolve 产占位 docx
-- 未来接入 `CuratedLocalAssetsProvider` / `MCPExternalAssetsProvider`,切换 manifest 中 `assets_provider` 字段即可,B 模式代码不感知
+manifest.yaml 顶部 `assets_provider` 字段控制本 Part 走哪个 Provider。详见 [docs/manifest_schema.md](docs/manifest_schema.md):
+
+- `placeholder`(V61 基建,默认):所有 asset 查询返回占位,resolve 产占位 docx
+- `curated_local`(V3-1 新增):扫 `assets/<类别>/<company_id>/_raw/` 找真实文件,_raw 优先 docx → pdf 走 pdf2docx 转换 → curated `.md` 兜底;多命中走 stdin 交互(`--non-interactive` 时按 `lookup_priority` 自动选);b_mode_fill 自动从 `brief.extracted.bidding_entity` 取 company_id
+
+未来工作:`MCPExternalAssetsProvider`(对接外部材料库,V4+)。
 
 **占位标记机制**:
 

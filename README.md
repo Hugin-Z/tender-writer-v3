@@ -32,7 +32,8 @@ install.bat
 - **评分矩阵追踪**:10 列 CSV 把每一分拆到应答章节,杜绝漏答
 - **项目类型识别**:工程 / 平台 / 研究 / 规划 / 其他 5 类自动选 outline 模板
 - **docx 渲染质量**:统一中文宋体、黑色标题、图占位区块、字号相对规则、空格自动清理
-- **非交互批量化**:一键跑完所有 C/B 模式 Part,占位红字标记"待填"
+- **B 模式材料组装**:从 assets 库按 asset_type / 公司 id 查找真实材料(CuratedLocalAssetsProvider),合并到 assembled.docx;无命中时产占位 + `.pending_marker`,V45 合并器列入 `pending_manual_work.md`
+- **C 模式非交互填充**:一键跑完所有 C 模式 Part,变量缺失时 filled.docx 写入"【待填:字段描述】"显式占位
 - **跨章节一致性检查**:团队成本 vs 预算、承诺时间 vs 工期等自相矛盾类错误自动捕获
 - **Claude Code 深度协作契约**:CLAUDE.md 定义 6 条硬红线,AI 行为可预期
 
