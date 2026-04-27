@@ -121,6 +121,44 @@ def run_part(project: str, part_idx: int, with_extract: bool) -> dict:
         return {'status': 'skipped',
                 'msg': f'intermediate.json 未找到({inter});请 AI 先产'}
 
+    # V3-7: 在 jinja build/fill 之前,尝试 docx passthrough 分流
+    # 先从 intermediate.json 数 variable blocks,避免 passthrough_part 在
+    # variables.yaml 不存在时默认 n_vars=0 → 漏判变量超阈 part
+    PASSTHROUGH_MAX_VARS = 5
+    try:
+        inter_data = json.loads(inter.read_text(encoding='utf-8'))
+        n_var_blocks = sum(
+            1 for b in inter_data.get('blocks', []) if b.get('type') == 'variable'
+        )
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"[Part {part_idx}] {name} - intermediate.json 解析失败"
+              f"({exc!r}),按 jinja 路径处理", file=sys.stderr)
+        n_var_blocks = PASSTHROUGH_MAX_VARS + 1  # 强制走 jinja
+
+    if n_var_blocks > PASSTHROUGH_MAX_VARS:
+        print(f"\n[Part {part_idx}] {name} - docx 直切跳过"
+              f"(变量数 {n_var_blocks} > {PASSTHROUGH_MAX_VARS});走 jinja 模板填充")
+    else:
+        # 调 passthrough_part(内部还会校 source_format / sub_mode / anchor.type)
+        sys.path.insert(0, str(script_dir))
+        from c_mode_docx_passthrough import passthrough_part
+        ps_result = passthrough_part(
+            project, part_idx,
+            max_vars=PASSTHROUGH_MAX_VARS, dry_run=False,
+        )
+        if ps_result['status'] == 'ok':
+            print(f"\n[Part {part_idx}] {name} - docx 直切完成 ({ps_result['msg']})")
+            return {'status': 'ok',
+                    'msg': f'docx 直切: {ps_result["msg"]}'}
+        if ps_result['status'] == 'error':
+            return {'status': 'error',
+                    'msg': f'docx 直切错误: {ps_result["msg"]}'}
+        # status == 'skipped' → 显示原因后 fallthrough 到 jinja
+        print(f"\n[Part {part_idx}] {name} - docx 直切跳过"
+              f"({ps_result['msg']});走 jinja 模板填充")
+
+    # ── jinja 路径(build-from-json + fill)──
+
     # build-from-json
     print(f"\n[Part {part_idx}] {name} - build-from-json")
     rc = run_subprocess([str(script_dir / 'c_mode_extract.py'),
@@ -138,7 +176,7 @@ def run_part(project: str, part_idx: int, with_extract: bool) -> dict:
     if rc != 0:
         return {'status': 'error', 'msg': 'fill 失败'}
 
-    return {'status': 'ok', 'msg': '三步完成'}
+    return {'status': 'ok', 'msg': 'jinja 模板填充: 三步完成'}
 
 
 def main():
