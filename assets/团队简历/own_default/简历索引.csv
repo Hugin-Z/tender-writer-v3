@@ -1,1 +1,3 @@
-﻿姓名|岗位|职称|关键证书|证书有效期|适配项目类型|company_id|company_type|review_status|详情路径
+姓名|岗位|职称|关键证书|证书有效期|适配项目类型|company_id|company_type|review_status|详情路径
+张三(DEMO)|项目经理|-|-|-|通用|own_default|own|demo|_raw/20250301_demo_zhang_san.docx
+李四(DEMO)|技术骨干|-|-|-|通用|own_default|own|demo|_raw/20250315_demo_li_si.docx
