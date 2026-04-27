@@ -79,15 +79,24 @@ def _handle_inline_template(doc, spec: dict, part_name: str):
 
 
 def _handle_asset_lookup(doc, spec: dict, provider, part_name: str):
-    """asset_lookup: 走 AssetsProvider 接口。"""
+    """asset_lookup: 走 AssetsProvider 接口。
+
+    V3-1:把 lookup_priority / year_filter / asset_query.type 从 spec 传给
+    provider.lookup;真实命中时追加来源溯源行(便于审核位回查),不再追加占位文字。
+    """
     from docx import Document as _DocxDocument
 
     title = spec.get('section_title', '<untitled>')
     asset_type = spec.get('asset_type', 'unknown')
     _append_heading(doc, f"{spec.get('section_id', '')} {title}")
 
+    asset_query = spec.get('asset_query', {}) or {}
     ref = provider.lookup(
         asset_type,
+        asset_query_type=asset_query.get('type', ''),
+        lookup_priority=spec.get('lookup_priority', 'latest_year_first'),
+        year_filter=spec.get('year_filter'),
+        # 旧字段保留(PlaceholderAssetsProvider 用于构造 lookup_key)
         part=part_name,
         section_id=spec.get('section_id', ''),
         source=spec.get('source', ''),
@@ -107,6 +116,14 @@ def _handle_asset_lookup(doc, spec: dict, provider, part_name: str):
             f"(AssetRef 占位: is_placeholder={ref.is_placeholder}, "
             f"lookup_key={ref.lookup_key})"
         )
+    else:
+        # V3-1:真实命中时追加溯源行(便于审核位回查实际选用的 asset)
+        src_filename = ref.metadata.get("filename", "")
+        src_kind = ref.metadata.get("kind", "")
+        if src_filename:
+            _append_placeholder_body(
+                doc, f"(asset 来源: {src_filename}, kind={src_kind})"
+            )
 
 
 def _handle_self_drafted(doc, spec: dict, part_name: str):
