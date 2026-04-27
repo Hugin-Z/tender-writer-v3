@@ -260,38 +260,43 @@ v2.0.0 / v2.0.1 已封板,v2.0.x 不再打补丁。所有 v2.0.x 期间登记但
 - 全部 12 项完成 + 自检全过后,一次 push + 打 v3.0.0 tag,届时 README / SKILL / changelog 一并对外更新
 - V3 不打中间小版本(v3.0.0-rc1 / v3.0.0-rc2 之类),封板就 v3.0.0
 
-### 审核节奏(分级审核协议)
+### 审核节奏(Plan-Execute-Review 三阶段协议)
 
-V3 期间审核位审核频率按 commit 风险分级,不是每个 commit 都贴审:
+V3 期间每个 V3-N 项分三阶段,审核位介入两次(Plan 审 + 完工审),中途 Claude Code 自主执行不贴审。
 
-- **低风险 commit**(自检通过即继续,不贴审)
-  - 纯 fixture 数据文件添加(anchor 文件本身、变形 fixture 数据)
-  - v3_planning.md 状态字段改动(待开始 → 进行中 / 进行中 → 已完成)
-  - .gitkeep / 空目录骨架
-  - 顶层 fixtures README.md 套用既定模板
+**Phase 1: Plan(强制审核点 1)**
 
-- **中风险 commit**(必须贴审)
-  - test_*.py 代码本身
-  - 变形 fixture 生成器脚本(_generators/mutate_*.py)
-  - tests/run_all.py 和 tests/README.md
-  - fixture 目录级 README(anchor 来源声明、用途声明)
+- Claude Code 进入 Plan Mode,产出 V3-N 完整执行计划写到 plans/v3-N.md
+- 计划内容必须包含:
+  - 子任务拆分(fixture 准备 / 测试代码 / 工具脚本等)
+  - commit 序列(每个 commit 的 message 和动到的文件)
+  - 关键设计决策(fixture 边界、断言策略、依赖处理)
+  - 自检方式(怎么验证完成判定每一条)
+- 审核位审计划,通过后 Claude Code 进 Phase 2
 
-- **高风险 commit**(必须贴审,审核位严审)
-  - 任何动到非测试文件的 commit(scripts/ 下源码、CLAUDE.md / README.md / SKILL.md)
-  - V3-N 范围外的"顺手修"
-  - v3_planning.md 内容字段改动(不止状态字段)
-  - 新增 V3-N 项 / 拆分 V3-N 项
+**Phase 2: Execute(无审核,自主执行)**
 
-子单元批审协议:
+- Claude Code 按 plans/v3-N.md 在 main 上线性 commit
+- 每个 commit 自检通过即进下一个,不贴审
+- 计划内的 commit 不需要等审核
+- 中途必须停下来跟用户确认的情况:
+  - 计划外的改动(plans/v3-N.md 没写但发现需要做)
+  - 发现源码 bug(走 V3-13 登记 + xfail 流程)
+  - 子任务执行中发现计划本身需要调整
+  - 任何动到非 V3-N 范围内文件的改动
 
-- 每完成 V3-N 内的一个子单元(比如 "fixture 准备 + 对应 test 文件" = 一组 2-3 个 commit),把这一组的所有 git diff + commit message 一次性贴审
-- 审核位审完反馈一次,不通过则定位到具体 commit revert
-- 子单元划分由用户(规划位)和 Claude Code 协商确定,通常以"一个 test_*.py + 它的 fixture"为一个子单元
+**Phase 3: Review(强制审核点 2)**
 
-V3-N 启动和收尾的强制审核点:
+- Claude Code 完工后,贴以下内容给审核位:
+  - V3-N 期间所有 commit 的 git log(含 message)
+  - 整体 diff:git diff <V3-N 起点>..HEAD
+  - 自检报告:测试运行结果、文件数、case 数、完成判定逐条对照
+- 审核位整体审,通过则 Claude Code 改 V3-N 状态为"已完成"(单独 commit)
+- 不通过则定位到具体 commit 单独 revert,修复后重走 Phase 3
 
-- V3-N 启动:状态改"进行中"的 commit + V3-N 第一个子单元一起首次贴审,确保方向对
-- V3-N 收尾:状态改"已完成"的 commit **必须**贴审通过后才执行,不允许 Claude Code 自行标"已完成"
+V3-N 启动和收尾的强制点:
+- 启动:plans/v3-N.md 必须经审核位审过才进 Phase 2
+- 收尾:状态改"已完成"的 commit 必须 Phase 3 审过后才执行,不允许 Claude Code 自行标"已完成"
 
 ## 推荐开发顺序
 
