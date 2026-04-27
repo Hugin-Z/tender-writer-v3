@@ -59,13 +59,12 @@ v2.0.0 / v2.0.1 已封板,v2.0.x 不再打补丁。所有 v2.0.x 期间登记但
 - test_v45_merge.py:测 build_merge_order 在不同 part 配置下的输出
 - test_generate_outline.py:测 5 类 project_type 各跑一遍模板
 - test_export_deliverables.py:测 build_deliverable_mapping 动态生成
-- test_assets_provider.py:配套 V3-1 的边界
 
 **完成判定**:
 
-- tests/ 下 ≥7 个测试文件 + budget_parsing 共 ≥8 个
+- tests/ 下 ≥6 个新测试文件 + budget_parsing 共 ≥7 个,test case 总数 ≥10
 - ./run_script.bat tests/run_all.py(新增)能一键跑全部
-- 每个核心脚本(parse_tender / compliance_check / check_cross_consistency / v45_merge / generate_outline / export_deliverables / assets_provider)至少有一个 happy path 测试
+- 每个核心脚本(parse_tender / compliance_check / check_cross_consistency / v45_merge / generate_outline / export_deliverables)至少有一个 happy path 测试
 
 **预估**:8-12 小时(主要时间在准备 fixture)
 
