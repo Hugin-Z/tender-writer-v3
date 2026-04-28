@@ -15,6 +15,7 @@ check_chapter.py · 章节自检脚本（阶段 4 撰写后必跑）
     [5] 履约前置条件句式
     [6] 必备要素覆盖
     [7] AI 输出空格规范(v2 单元 2,ai_output_rules.md R3)
+    [8] 正文级缝合句检测(V3-4,扩展 [2] 标题级 cheat 到正文)
 """
 
 from __future__ import annotations
@@ -398,6 +399,166 @@ def check_whitespace_rule(text: str) -> tuple[str, str]:
 
 
 # ─────────────────────────────────────────────
+# 检查 8: 正文级缝合句检测(V3-4)
+# ─────────────────────────────────────────────
+#
+# 扩展 [2] 标题级 cheat 检测到正文段落。算法:
+# 1. 收集 scoring_matrix 第 5 列所有关键词
+# 2. 对正文段落(跳过表格/列表/标题/代码块/图占位/nolint 注释下一段)做滑窗
+# 3. window 字内含 ≥threshold_fail 个不同关键词 → fail
+#    含 ≥threshold_warn 个不同关键词 → warn
+#
+# 默认阈值 warn=5 / fail=6 / window=30 字(plan 初值 4/5,demo 烟测调到 5/6
+# 消除误报 fail。护栏未触发,1 档自动调整)。误报处置:
+# - 单点忽略:在段落上方加 <!-- nolint:stitching --> 注释
+# - 全局调阈值:--stitching-threshold-warn / --stitching-threshold-fail
+# - 调窗口:--stitching-window
+
+
+def check_content_keyword_stitching(
+    text: str,
+    matrix_rows: list[dict],
+    window: int = 30,
+    threshold_warn: int = 5,
+    threshold_fail: int = 6,
+) -> tuple[str, str]:
+    """V3-4: 正文级缝合句检测。
+
+    阈值演化:plan 初值 4 warn / 5 fail,demo 5 章烟测 1 章误报 fail
+    (chapter_01 自然介绍句 5 关键词压一句)→ 1 档调整到 5 warn / 6 fail。
+    护栏未触发(误报 fail 1/5=20% 在 ≥3/6 阈值下)。
+    """
+    # 收集关键词
+    all_kws: set[str] = set()
+    for row in matrix_rows:
+        kws_str = (row.get("关键词") or "").strip()
+        if kws_str:
+            for kw in re.split(r"[;；、/]+", kws_str):
+                kw = kw.strip()
+                if len(kw) >= 2:
+                    all_kws.add(kw)
+
+    if not all_kws:
+        return "warn", "scoring_matrix 无关键词,跳过缝合句检测"
+
+    lines = text.splitlines()
+    hits: list[tuple[int, str, str, list[str]]] = []
+    in_code_block = False
+    skip_next_prose = False  # nolint:stitching 触发的"跳过下一段"状态
+
+    for ln_no, line in enumerate(lines, 1):
+        stripped = line.strip()
+
+        # 代码块开关
+        if stripped.startswith("```"):
+            in_code_block = not in_code_block
+            continue
+        if in_code_block:
+            continue
+
+        # nolint 标记:消费当前行 + 设置下一段跳过
+        if stripped == "<!-- nolint:stitching -->":
+            skip_next_prose = True
+            continue
+
+        if not stripped:
+            continue
+
+        # 其他 HTML 注释
+        if stripped.startswith("<!--") and stripped.endswith("-->"):
+            continue
+
+        # 表格行 / 表格分隔符
+        if stripped.startswith("|") or re.match(r"^\|?\s*:?-+", stripped):
+            continue
+
+        # 标题(# 开头)— [2] 标题级 cheat 已覆盖
+        if stripped.startswith("#"):
+            continue
+
+        # 列表(- / * / 1.)— 枚举式堆叠是合理用法
+        if re.match(r"^\s*[-*+]\s", line) or re.match(r"^\s*\d+\.\s", line):
+            continue
+
+        # 图占位符 **【图 X.X:...】**
+        if stripped.startswith("**【") and stripped.endswith("】**"):
+            continue
+
+        # nolint 触发的"跳过下一非空非结构段"
+        if skip_next_prose:
+            skip_next_prose = False
+            continue
+
+        # 找当前行所有关键词命中
+        matched: list[tuple[int, str]] = []
+        for kw in all_kws:
+            start = 0
+            while True:
+                idx = stripped.find(kw, start)
+                if idx < 0:
+                    break
+                matched.append((idx, kw))
+                start = idx + 1
+
+        if len(matched) < threshold_warn:
+            continue
+
+        # 按位置排序
+        matched.sort(key=lambda m: m[0])
+
+        # 滑窗:任意起点 a 找最远 b,使 (b.start - a.start) ≤ window;
+        # 该 [a, b] 区间含的不同关键词数即该窗口的命中数
+        max_count = 0
+        max_subset: list[str] = []
+        for a in range(len(matched)):
+            seen: set[str] = set()
+            for b in range(a, len(matched)):
+                if matched[b][0] - matched[a][0] > window:
+                    break
+                seen.add(matched[b][1])
+            if len(seen) > max_count:
+                max_count = len(seen)
+                max_subset = sorted(seen)
+
+        if max_count >= threshold_fail:
+            hits.append((ln_no, "fail", stripped[:60], max_subset))
+        elif max_count >= threshold_warn:
+            hits.append((ln_no, "warn", stripped[:60], max_subset))
+
+    if not hits:
+        return (
+            "pass",
+            f"0 处缝合句嫌疑(阈值 warn={threshold_warn}/fail={threshold_fail},窗口 {window} 字)"
+        )
+
+    fail_count = sum(1 for h in hits if h[1] == "fail")
+    warn_count = sum(1 for h in hits if h[1] == "warn")
+
+    detail_lines = []
+    for ln_no, status, snippet, kws in hits[:5]:
+        icon = "失败" if status == "fail" else "警告"
+        kw_str = "/".join(kws[:5]) + ("..." if len(kws) > 5 else "")
+        detail_lines.append(f"L{ln_no} [{icon}]: 命中 {len(kws)} 关键词 ({kw_str}) 在 ≤{window} 字窗口")
+
+    detail = (
+        f"{fail_count} 失败 + {warn_count} 警告(阈值 warn={threshold_warn}/"
+        f"fail={threshold_fail})\n        "
+        + "\n        ".join(detail_lines)
+    )
+    if len(hits) > 5:
+        detail += f"\n        ... +{len(hits) - 5} 处未列出"
+    detail += (
+        "\n        见 ai_output_rules.md R7 缝合句作弊扩展;如属合理段落,"
+        "加 `<!-- nolint:stitching -->` 单点忽略,或调 "
+        "`--stitching-threshold-fail` / `--stitching-window`"
+    )
+
+    if fail_count > 0:
+        return "fail", detail
+    return "warn", detail
+
+
+# ─────────────────────────────────────────────
 # 检查 6: 必备要素覆盖
 # ─────────────────────────────────────────────
 
@@ -474,6 +635,15 @@ def main() -> None:
     parser.add_argument("--legacy-mode", action="store_true",
                         help="向后兼容模式:v2 新增的严格检查(字数 fail/缝合句 fail/"
                              "空格 fail)降级为 warn。老项目复检时启用,避免突然不通过。")
+    # V3-4: 正文级缝合句检测阈值
+    parser.add_argument("--stitching-window", type=int, default=30,
+                        help="V3-4 正文缝合检测的滑窗字数(默认 30)")
+    parser.add_argument("--stitching-threshold-warn", type=int, default=5,
+                        help="V3-4 正文缝合检测 warn 阈值(默认 5 关键词;"
+                             "plan 初值 4,demo 烟测调到 5 消除误报 fail)")
+    parser.add_argument("--stitching-threshold-fail", type=int, default=6,
+                        help="V3-4 正文缝合检测 fail 阈值(默认 6 关键词;"
+                             "plan 初值 5,demo 烟测调到 6 消除误报 fail)")
     args = parser.parse_args()
 
     md_path = Path(args.md_path)
@@ -533,11 +703,21 @@ def main() -> None:
     s7, d7 = check_whitespace_rule(text)
     checks.append(("AI 输出空格规范", s7, d7))
 
+    # [8] 正文级缝合句检测(V3-4)
+    s8, d8 = check_content_keyword_stitching(
+        text, matrix_rows,
+        window=args.stitching_window,
+        threshold_warn=args.stitching_threshold_warn,
+        threshold_fail=args.stitching_threshold_fail,
+    )
+    checks.append(("正文级缝合句", s8, d8))
+
     # 输出(legacy-mode:v2 新增的严格检查降级为 warn)
     # v2 严格检查索引:1=Part 边界(pre-B,不降)
     # 2=标题关键词(缝合句作弊:v2 新,可降) 3=字数(v2 升级 fail:可降)
     # 4=图占位符 5=履约句式 6=必备要素 7=空格规范(v2 新,可降)
-    roundb_strict_indices = {2, 3, 7}
+    # 8=正文缝合(V3-4 新,可降)
+    roundb_strict_indices = {2, 3, 7, 8}
     fail_count = 0
     warn_count = 0
     pass_count = 0
