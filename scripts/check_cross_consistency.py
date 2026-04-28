@@ -225,6 +225,17 @@ def main():
                         help="成本告警容忍度倍数(默认 1.5,即估算 > 预算 × 1.5 告警)")
     args = parser.parse_args()
 
+    # V3-3: timing hook
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _timing_hook import stage_timer
+    # brief 在 project/output/tender_brief.json,推 project_dir
+    _project_dir = Path(args.brief).resolve().parent.parent
+
+    with stage_timer("check_cross_consistency", _project_dir):
+        _main_body(args)
+
+
+def _main_body(args):
     docx_path = Path(args.docx_path)
     brief_path = Path(args.brief)
 

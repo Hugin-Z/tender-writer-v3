@@ -229,6 +229,16 @@ def main():
     args = parser.parse_args()
 
     project_dir = ROOT / 'projects' / args.project
+
+    # V3-3: timing hook
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _timing_hook import stage_timer
+
+    with stage_timer("export_deliverables", project_dir):
+        _main_body(args, project_dir)
+
+
+def _main_body(args, project_dir):
     if not project_dir.exists():
         print(f"[错误] 项目目录不存在: {project_dir}", file=sys.stderr)
         sys.exit(1)

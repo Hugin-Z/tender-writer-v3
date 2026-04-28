@@ -876,6 +876,17 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    # V3-3: timing hook
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _timing_hook import stage_timer
+    # matrix 在 project/output/scoring_matrix.csv,推 project_dir
+    _project_dir = Path(args.matrix_csv).resolve().parent.parent
+
+    with stage_timer("compliance_check", _project_dir):
+        _main_body(args)
+
+
+def _main_body(args) -> None:
     docx_path = Path(args.docx_path)
     matrix_csv = Path(args.matrix_csv)
 
