@@ -666,6 +666,17 @@ def main():
     )
     args = parser.parse_args()
 
+    # V3-3: timing hook
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _timing_hook import stage_timer
+    _out_path = Path(args.out)
+    _project_dir = _out_path.parent if _out_path.name == "output" else _out_path
+
+    with stage_timer("parse_tender", _project_dir):
+        _main_body(args)
+
+
+def _main_body(args):
     tender_path = Path(args.tender_path)
     out_dir = Path(args.out)
     json_path = out_dir / "tender_brief.json"

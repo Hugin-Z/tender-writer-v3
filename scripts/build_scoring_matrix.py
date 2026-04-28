@@ -185,6 +185,17 @@ def main() -> None:
                         help="强制覆盖已有 scoring_matrix.csv(已有数据将被覆盖)")
     args = parser.parse_args()
 
+    # V3-3: timing hook
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _timing_hook import stage_timer
+    # brief 在 project/output/tender_brief.json,推 project_dir
+    _project_dir = Path(args.brief_path).resolve().parent.parent
+
+    with stage_timer("build_scoring_matrix", _project_dir):
+        _main_body(args)
+
+
+def _main_body(args) -> None:
     brief_path = Path(args.brief_path)
     if not brief_path.exists():
         print(f"[错误] 找不到文件: {brief_path}", file=sys.stderr)

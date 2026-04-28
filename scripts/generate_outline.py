@@ -320,6 +320,17 @@ def main() -> None:
     parser.add_argument("--out", default="output", help="输出目录，默认 output/")
     args = parser.parse_args()
 
+    # V3-3: timing hook
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _timing_hook import stage_timer
+    # matrix 在 project/output/scoring_matrix.csv,推 project_dir
+    _project_dir = Path(args.matrix_csv).resolve().parent.parent
+
+    with stage_timer("generate_outline", _project_dir):
+        _main_body(args)
+
+
+def _main_body(args) -> None:
     matrix_csv = Path(args.matrix_csv)
     if not matrix_csv.exists():
         print(f"[错误] 找不到评分矩阵: {matrix_csv}", file=sys.stderr)
