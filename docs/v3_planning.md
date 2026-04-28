@@ -249,6 +249,33 @@ v2.0.0 / v2.0.1 已封板,v2.0.x 不再打补丁。所有 v2.0.x 期间登记但
 
 **依赖**:V3-10 顺带做更省事
 
+### V3-13 · demo 项目无破坏重跑工具(parse_tender state reset)
+
+**状态**:待开始
+
+**优先级**:🟢 中
+
+**现状**:V3-3 baseline 跑 parse_tender 时,采用"`--force` 重跑 → `git restore` brief.json/md/raw 三件 tracked 文件"的手动组合恢复 demo 状态。`.reviewed` 没被 parse_tender 删,且 `ensure_reviewed` 只查文件存在不查 hash,所以 parse 后 .reviewed 仍 pass 下游闸门——但这是利用实现细节,方法论不干净。后续 V3-N+ 若需重跑 parse_tender 取真实数据(如 V3-6 OCR 后看耗时变化、性能优化前后 timing 对比),手动组合脆弱:容易漏 restore 某文件,容易污染 demo 状态。
+
+**做什么**:
+
+- 新增 `scripts/demo_reset.py`:一键回到 demo 项目"可干净重跑 parse_tender" 的状态
+- 步骤:`git restore projects/demo_cadre_training/output/<tracked files>` + 校验 `.reviewed` 仍存在 + 提示"现可跑 parse_tender --force"
+- CLAUDE.md 红线 1 仍生效:脚本不创建 .reviewed,只 restore tracked files
+- 文档化:在 SKILL.md 阶段 1 / docs/FAQ.md 提一句"demo 重跑 parse_tender 用 demo_reset.py 而不是手动 git restore"
+
+**完成判定**:
+
+- 跑 `demo_reset.py` 后 `git status projects/demo_cadre_training/output/` 全干净
+- 接着跑 `parse_tender --force` + 任意下游脚本(如 build_scoring_matrix),`ensure_reviewed` 闸门 pass
+- 单元测试 ≥1 case(demo_reset 恢复后 brief.json hash 与 HEAD 一致)
+
+**预估**:1-2 小时
+
+**依赖**:无
+
+**来源**:V3-3 baseline run 衍生的运维工具债,V3-3 Phase 3 review 由用户登记。
+
 ## 不做项(显式记录)
 
 - MCPExternalAssetsProvider:assets_provider.py 注释登记的另一个未来工作。需要外部材料库 + MCP 协议对接,V3 不做,留 V4
@@ -261,7 +288,7 @@ v2.0.0 / v2.0.1 已封板,v2.0.x 不再打补丁。所有 v2.0.x 期间登记但
 - 一次只做一个 V3-N 项,不并行
 - 每完成一项,在本文档把状态从"进行中"改为"已完成",commit message 用 feat(v3-N) / test(v3-N) / fix(v3-N) / refactor(v3-N) / docs(v3-N) 格式
 - 本地 commit 累积,中间不 push 远程
-- 全部 12 项完成 + 自检全过后,一次 push + 打 v3.0.0 tag,届时 README / SKILL / changelog 一并对外更新
+- 全部 13 项完成 + 自检全过后,一次 push + 打 v3.0.0 tag,届时 README / SKILL / changelog 一并对外更新
 - V3 不打中间小版本(v3.0.0-rc1 / v3.0.0-rc2 之类),封板就 v3.0.0
 
 ### 审核节奏(Plan-Execute-Review 三阶段协议)
@@ -318,8 +345,9 @@ V3-N 启动和收尾的强制点:
 10. V3-9 check_cross_consistency 扩充
 11. V3-10 README + SKILL 阶段口径统一
 12. V3-12 SKILL.md description 精简
+13. V3-13 demo 重跑工具(V3-3 衍生,后续 V3-N+ 重跑 parse_tender 时方便,优先级中)
 
-V3-10 和 V3-12 放最后,因为它们涉及 README/SKILL 文案,V3 全部功能完成后一次性对外发布更整洁。
+V3-10 和 V3-12 放最后,因为它们涉及 README/SKILL 文案,V3 全部功能完成后一次性对外发布更整洁。V3-13 排在最末是因为它是 V3-3 衍生债,不阻塞其他项,做完更顺手。
 
 ## 与 v2.0.x 的边界
 
