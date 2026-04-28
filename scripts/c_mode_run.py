@@ -199,6 +199,16 @@ def main():
                         'select_bidding_entity.py)')
     args = p.parse_args()
 
+    # V3-3: timing hook
+    project_dir = ROOT / 'projects' / args.project
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _timing_hook import stage_timer
+
+    with stage_timer("c_mode_run", project_dir):
+        _main_body(args)
+
+
+def _main_body(args):
     # v2 补丁 1:自动触发 select_bidding_entity(若 extracted.bidding_entity 未设置)
     _ensure_bidding_entity(args.project, args.non_interactive, args.entity_id)
 

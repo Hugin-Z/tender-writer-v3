@@ -173,8 +173,16 @@ def main():
 
     project_dir = ROOT / 'projects' / args.project
 
-    # V53: 未 review 则硬失败
+    # V3-3: timing hook
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from _timing_hook import stage_timer
+
+    with stage_timer("b_mode_fill", project_dir):
+        _main_body(args, project_dir)
+
+
+def _main_body(args, project_dir):
+    # V53: 未 review 则硬失败
     from brief_schema import ensure_reviewed
     ensure_reviewed(project_dir / 'output')
 

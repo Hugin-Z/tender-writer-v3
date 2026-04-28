@@ -193,19 +193,24 @@ def main():
     args = parser.parse_args()
 
     project_dir = ROOT / 'projects' / args.project
-    if not project_dir.exists():
-        print(f"[错误] 项目目录不存在: {project_dir}", file=sys.stderr)
-        sys.exit(1)
 
-    # V53: 未 review 则硬失败
+    # V3-3: timing hook
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from brief_schema import ensure_reviewed
-    ensure_reviewed(project_dir / 'output')
+    from _timing_hook import stage_timer
 
-    if args.extract_text:
-        cmd_extract_text(args, project_dir)
-    else:
-        cmd_build_from_json(args, project_dir)
+    with stage_timer("b_mode_extract", project_dir):
+        if not project_dir.exists():
+            print(f"[错误] 项目目录不存在: {project_dir}", file=sys.stderr)
+            sys.exit(1)
+
+        # V53: 未 review 则硬失败
+        from brief_schema import ensure_reviewed
+        ensure_reviewed(project_dir / 'output')
+
+        if args.extract_text:
+            cmd_extract_text(args, project_dir)
+        else:
+            cmd_build_from_json(args, project_dir)
 
 
 if __name__ == '__main__':
