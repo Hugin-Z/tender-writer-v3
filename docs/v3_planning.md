@@ -276,6 +276,37 @@ v2.0.0 / v2.0.1 已封板,v2.0.x 不再打补丁。所有 v2.0.x 期间登记但
 
 **来源**:V3-3 baseline run 衍生的运维工具债,V3-3 Phase 3 review 由用户登记。
 
+### V3-14 · 开源前最终审计
+
+**状态**:待开始
+
+**优先级**:🟢 中(V3 收尾时做)
+
+**现状**:V3 期间所有 commit 留本地 main,未 push 远程。开源前需做最终审计。
+
+**做什么**:
+
+- 全仓 grep 敏感字符串(真实公司名、人名、API key、内网 IP、硬件路径)
+- 审 demo_cadre_training 项目源 PDF 是否公开来源
+- 审 demo own_demo 下 fixture docx 是否真为生成的 placeholder(已确认)
+- 审 timing baseline 是否暴露 hostname / 用户路径
+- 审 commit history 是否含临时调试输出 / 早期未脱敏内容
+- 准备开源所需文档:LICENSE / CONTRIBUTING.md / 系统依赖说明
+- README 加"开源版本边界"段:不集成 OCR / 用户自负责 OCR 选型 等
+
+**完成判定**:
+
+- 敏感信息 grep 报告:0 命中
+- 仓库可在干净环境 clone + 装 requirements + 跑 demo 不报错
+- LICENSE / CONTRIBUTING.md 就位
+- README 系统依赖段明确(只列 Python / pip 依赖,不列 OCR 等可选)
+
+**预估**:2-3 小时
+
+**依赖**:V3-1 至 V3-13 全部完成
+
+**来源**:V3-6 路径讨论时由用户登记。开源是 V3 收尾下一步动作。
+
 ## 不做项(显式记录)
 
 - MCPExternalAssetsProvider:assets_provider.py 注释登记的另一个未来工作。需要外部材料库 + MCP 协议对接,V3 不做,留 V4
@@ -288,7 +319,7 @@ v2.0.0 / v2.0.1 已封板,v2.0.x 不再打补丁。所有 v2.0.x 期间登记但
 - 一次只做一个 V3-N 项,不并行
 - 每完成一项,在本文档把状态从"进行中"改为"已完成",commit message 用 feat(v3-N) / test(v3-N) / fix(v3-N) / refactor(v3-N) / docs(v3-N) 格式
 - 本地 commit 累积,中间不 push 远程
-- 全部 13 项完成 + 自检全过后,一次 push + 打 v3.0.0 tag,届时 README / SKILL / changelog 一并对外更新
+- 全部 14 项完成 + 自检全过后,一次 push + 打 v3.0.0 tag,届时 README / SKILL / changelog 一并对外更新
 - V3 不打中间小版本(v3.0.0-rc1 / v3.0.0-rc2 之类),封板就 v3.0.0
 
 ### 审核节奏(Plan-Execute-Review 三阶段协议)
@@ -346,8 +377,9 @@ V3-N 启动和收尾的强制点:
 11. V3-10 README + SKILL 阶段口径统一
 12. V3-12 SKILL.md description 精简
 13. V3-13 demo 重跑工具(V3-3 衍生,后续 V3-N+ 重跑 parse_tender 时方便,优先级中)
+14. V3-14 开源前最终审计(V3 收尾,依赖 V3-1 至 V3-13 全部完成)
 
-V3-10 和 V3-12 放最后,因为它们涉及 README/SKILL 文案,V3 全部功能完成后一次性对外发布更整洁。V3-13 排在最末是因为它是 V3-3 衍生债,不阻塞其他项,做完更顺手。
+V3-10 和 V3-12 放最后,因为它们涉及 README/SKILL 文案,V3 全部功能完成后一次性对外发布更整洁。V3-13 是 V3-3 衍生债,不阻塞其他项,做完更顺手。V3-14 是 V3 收尾动作,开源前的最终审计,真正放在最末。
 
 ## 与 v2.0.x 的边界
 
