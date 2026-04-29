@@ -64,6 +64,26 @@ FORMAT_CHECKS = {
 }
 NORMALIZE_PATTERN = re.compile(r"[\s\u3000，,。；;：:（）()\[\]【】\-—_/]")
 
+# ── V3-8 fontTable 字体常量 ────────────────────────────────────────────
+# 中文字体规范名 → 别名清单（归一化目标）
+_CHINESE_CANONICAL: dict[str, list[str]] = {
+    "宋体":     ["宋体", "SimSun", "宋体-简", "NSimSun", "STSong", "宋体-繁"],
+    "黑体":     ["黑体", "SimHei", "STHeiti"],
+    "仿宋":     ["仿宋", "FangSong", "仿宋_GB2312", "STFangsong"],
+    "微软雅黑": ["微软雅黑", "Microsoft YaHei", "Microsoft YaHei UI"],
+}
+# 归一化后的合法字体集合（快速查找用）
+_FONT_ALLOWED_NORMALIZED: frozenset[str] = frozenset(
+    list(_CHINESE_CANONICAL.keys()) + ["Times New Roman", "Arial", "Calibri", "Cambria"]
+)
+# python-docx 默认 boilerplate 自带的字体（知道存在，容忍不报 warn）
+_FONT_BOILERPLATE_TOLERATED: frozenset[str] = frozenset({
+    "Symbol",
+    "Courier",
+    "ＭＳ 明朝",    # ＭＳ 明朝（全角，MS Mincho，python-docx 默认）
+    "ＭＳ ゴシック",  # ＭＳ ゴシック（全角，MS Gothic，python-docx 默认）
+})
+
 
 def normalize_for_match(text: str) -> str:
     return NORMALIZE_PATTERN.sub("", text)
@@ -309,6 +329,56 @@ def check_format(docx_text: str, format_info: dict, section_only: bool = False) 
     return issues
 
 
+
+def _normalize_font_alias(font_name: str) -> str:
+    """把字体别名归一化到 canonical name；未识别则原样返回。"""
+    for canonical, aliases in _CHINESE_CANONICAL.items():
+        if font_name in aliases:
+            return canonical
+    return font_name
+
+
+def _check_fonttable(docx_path) -> list[str]:
+    """V3-8：解析 word/fontTable.xml，返回非白名单且非 boilerplate 字体的 warn 列表。"""
+    import zipfile as _zipfile
+    import xml.etree.ElementTree as _ET
+
+    NS = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+
+    try:
+        with _zipfile.ZipFile(docx_path) as z:
+            if "word/fontTable.xml" not in z.namelist():
+                return []
+            xml_bytes = z.read("word/fontTable.xml")
+    except (_zipfile.BadZipFile, KeyError):
+        return ["字体检查(fontTable)：docx 解压失败"]
+
+    try:
+        root = _ET.fromstring(xml_bytes.decode("utf-8"))
+    except _ET.ParseError:
+        return ["字体检查(fontTable)：xml 解析失败"]
+
+    fonts = [f.get(f"{NS}name") for f in root.findall(f"{NS}font")]
+    fonts = [f for f in fonts if f]
+
+    suspicious = []
+    for font in fonts:
+        normalized = _normalize_font_alias(font)
+        if normalized in _FONT_ALLOWED_NORMALIZED:
+            continue
+        if font in _FONT_BOILERPLATE_TOLERATED or normalized in _FONT_BOILERPLATE_TOLERATED:
+            continue
+        suspicious.append(font)
+
+    if not suspicious:
+        return []
+    return [
+        f"字体检查(fontTable warn)：docx 声明非白名单字体 {suspicious}，"
+        f"非 python-docx 默认 boilerplate；若被实际引用可能导致 WPS fallback 渲染问题。"
+        f"白名单 + boilerplate 容忍见 compliance_check.py _FONT_ALLOWED_NORMALIZED / _FONT_BOILERPLATE_TOLERATED。"
+    ]
+
+
 def check_font_safety(docx_path: Path) -> list[str]:
     """
     v2 补丁 2:字体安全检查(回归检查项)。
@@ -329,7 +399,7 @@ def check_font_safety(docx_path: Path) -> list[str]:
     import zipfile as _zipfile
 
     issues: list[str] = []
-    ALLOWED_CJK = {"宋体", "仿宋", "仿宋_GB2312", "黑体", "微软雅黑"}
+    ALLOWED_CJK = {a for aliases in _CHINESE_CANONICAL.values() for a in aliases}
     ALLOWED_ASCII = {"Times New Roman"}
 
     try:
@@ -386,6 +456,9 @@ def check_font_safety(docx_path: Path) -> list[str]:
             f"字体检查:检测到非白名单 ascii 字体 {font!r} × {cnt} 处 "
             f"(白名单 {sorted(ALLOWED_ASCII)})"
         )
+
+    # ── V3-8 新增：fontTable.xml 级检查（warn 级）
+    issues.extend(_check_fonttable(docx_path))
 
     return issues
 
