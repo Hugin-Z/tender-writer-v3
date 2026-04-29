@@ -45,6 +45,8 @@ MATRIX_CSV = FIXTURES / "scoring_matrix_minimal.csv"
 CLEAN_DOCX = FIXTURES / "clean_response.docx"
 MISSING_DOCX = FIXTURES / "missing_keywords.docx"
 FONT_UNSAFE_DOCX = FIXTURES / "font_unsafe.docx"
+FONT_UNSAFE_TABLE_DOCX = FIXTURES / "font_unsafe_table.docx"
+FONT_SIMSUN_ALIAS_DOCX = FIXTURES / "font_simsun_alias.docx"
 
 
 def main() -> int:
@@ -201,6 +203,65 @@ def main() -> int:
     if not ok:
         print(f"           full issues: {issues_full}")
         print(f"           section_only issues: {issues_section}")
+        fails += 1
+
+
+    # ---- V3-8 case 14: clean docx fontTable 级也不报(boilerplate 容忍) ----
+    cases += 1
+    issues_c14 = check_font_safety(CLEAN_DOCX)
+    ok = len(issues_c14) == 0
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_14_clean_fonttable_no_warn")
+    if not ok:
+        print(f"           clean docx issues={issues_c14}")
+        fails += 1
+
+    # ---- V3-8 case 15: font_unsafe.docx 段落 fail 存在;fontTable 级无 warn ----
+    cases += 1
+    issues_c15 = check_font_safety(FONT_UNSAFE_DOCX)
+    has_para_fail = any("MS Mincho" in m for m in issues_c15)
+    has_fonttable_warn = any("fontTable warn" in m for m in issues_c15)
+    ok = has_para_fail and not has_fonttable_warn
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_15_font_unsafe_para_fail_no_fonttable_warn")
+    if not ok:
+        print(f"           has_para_fail={has_para_fail}, has_fonttable_warn={has_fonttable_warn}")
+        print(f"           issues={issues_c15}")
+        fails += 1
+
+    # ---- V3-8 case 16: font_unsafe_table.docx → fontTable warn Comic Sans MS ----
+    cases += 1
+    issues_c16 = check_font_safety(FONT_UNSAFE_TABLE_DOCX)
+    has_fonttable_warn = any("fontTable warn" in m and "Comic Sans MS" in m for m in issues_c16)
+    has_para_fail = any("fontTable warn" not in m for m in issues_c16)
+    ok = has_fonttable_warn and len([m for m in issues_c16 if "fontTable warn" not in m]) == 0
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_16_font_unsafe_table_fonttable_warn")
+    if not ok:
+        print(f"           has_fonttable_warn={has_fonttable_warn}")
+        print(f"           issues={issues_c16}")
+        fails += 1
+
+    # ---- V3-8 case 17: font_simsun_alias.docx → 0 issues(SimSun 别名归一化) ----
+    cases += 1
+    issues_c17 = check_font_safety(FONT_SIMSUN_ALIAS_DOCX)
+    ok = len(issues_c17) == 0
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_17_font_simsun_alias_passes")
+    if not ok:
+        print(f"           issues={issues_c17}")
+        fails += 1
+
+    # ---- V3-8 case 18: _normalize_font_alias 单元测试 ----
+    cases += 1
+    from compliance_check import _normalize_font_alias
+    checks = [
+        (_normalize_font_alias("SimSun"), "宋体"),
+        (_normalize_font_alias("FangSong"), "仿宋"),
+        (_normalize_font_alias("UnknownFont"), "UnknownFont"),
+    ]
+    ok = all(got == expected for got, expected in checks)
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_18_normalize_font_alias_unit")
+    if not ok:
+        for got, expected in checks:
+            if got != expected:
+                print(f"           expected {expected!r}, got {got!r}")
         fails += 1
 
     print()

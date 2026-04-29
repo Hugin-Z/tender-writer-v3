@@ -101,12 +101,62 @@ def make_font_unsafe(out_path: Path):
     doc.save(str(out_path))
 
 
+
+
+def _inject_font_in_fonttable(docx_bytes: bytes, font_name: str) -> bytes:
+    """fontTable.xml に font_name エントリを追加して返す。"""
+    import io
+    import zipfile
+
+    in_buf = io.BytesIO(docx_bytes)
+    out_buf = io.BytesIO()
+    with zipfile.ZipFile(in_buf, "r") as zin, zipfile.ZipFile(out_buf, "w", zipfile.ZIP_DEFLATED) as zout:
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == "word/fontTable.xml":
+                xml_text = data.decode("utf-8")
+                entry = f'<w:font w:name="{font_name}"/>'
+                # Insert before closing tag
+                xml_text = xml_text.replace("</w:fonts>", f"{entry}</w:fonts>")
+                data = xml_text.encode("utf-8")
+            zout.writestr(item, data)
+    out_buf.seek(0)
+    return out_buf.read()
+
+
+def make_font_unsafe_table(out_path: Path):
+    """Normal=宋体（白名单），fontTable に Comic Sans MS（非白名单非 boilerplate）を注入。"""
+    import io
+    doc = Document()
+    set_section_margins(doc)
+    set_normal_font(doc, east_asia="宋体")
+    add_cover_paragraphs(doc)
+    add_management_paragraph(doc)
+    add_tech_paragraph(doc)
+    buf = io.BytesIO()
+    doc.save(buf)
+    modified = _inject_font_in_fonttable(buf.getvalue(), "Comic Sans MS")
+    out_path.write_bytes(modified)
+
+
+def make_font_simsun_alias(out_path: Path):
+    """Normal=SimSun（宋体の别名），fontTable はデフォルト boilerplate のみ。"""
+    doc = Document()
+    set_section_margins(doc)
+    set_normal_font(doc, east_asia="SimSun")
+    add_cover_paragraphs(doc)
+    add_management_paragraph(doc)
+    add_tech_paragraph(doc)
+    doc.save(str(out_path))
+
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     targets = {
         "clean_response.docx": make_clean,
         "missing_keywords.docx": make_missing_keywords,
         "font_unsafe.docx": make_font_unsafe,
+        "font_unsafe_table.docx": make_font_unsafe_table,
+        "font_simsun_alias.docx": make_font_simsun_alias,
     }
     for name, maker in targets.items():
         path = OUT_DIR / name
