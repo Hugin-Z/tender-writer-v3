@@ -28,9 +28,34 @@ import re
 import sys
 from pathlib import Path
 
+# V3-6: 扫描版 PDF 检测阈值(全文平均字/页)
+# 实测文字版招标 PDF 平均 466~700+ 字/页,扫描版图片 PDF 平均 0 字/页,9× 安全余量。
+_SCANNED_PDF_AVG_THRESHOLD = 50
+_SCANNED_PDF_TOTAL_THRESHOLD = 100  # 兜底:1-2 页极短文档边界
 
-def read_pdf(path: Path) -> str:
-    """读取 PDF 文件,返回纯文本(每页之间用 \n\n 分隔)"""
+
+class ScannedPdfDetected(Exception):
+    """V3-6: 扫描版 PDF 检测命中,无 --ocr-text fallback 时抛出。"""
+
+    def __init__(self, n_pages: int, total_chars: int, avg_per_page: float, pdf_path: Path):
+        self.n_pages = n_pages
+        self.total_chars = total_chars
+        self.avg_per_page = avg_per_page
+        self.pdf_path = pdf_path
+        super().__init__(
+            f"PDF 疑似扫描版:{n_pages} 页 / {total_chars} 字符 / "
+            f"平均 {avg_per_page:.1f} 字/页(阈值 {_SCANNED_PDF_AVG_THRESHOLD})"
+        )
+
+
+def read_pdf(path: Path, ocr_fallback_txt: Path | None = None) -> str:
+    """读取 PDF 文件,返回纯文本(每页之间用 \\n\\n 分隔)。
+
+    V3-6: 扫描版检测
+    - 全文平均字/页 < 50 (或总字符 < 100) 视为扫描版
+    - 有 ocr_fallback_txt 参数 → 读 txt 作为 raw_text 返回
+    - 无参数 → 抛 ScannedPdfDetected,main 捕获后友好报错退出
+    """
     try:
         import pdfplumber
     except ImportError:
@@ -39,10 +64,68 @@ def read_pdf(path: Path) -> str:
 
     pages_text = []
     with pdfplumber.open(str(path)) as pdf:
+        n_pages = len(pdf.pages)
         for i, page in enumerate(pdf.pages):
             text = page.extract_text() or ""
             pages_text.append(text)
-    return "\n\n".join(pages_text)
+
+    full_text = "\n\n".join(pages_text)
+    total_chars = sum(len(t) for t in pages_text)
+    avg_per_page = total_chars / n_pages if n_pages else 0
+    is_scanned = (
+        n_pages == 0
+        or avg_per_page < _SCANNED_PDF_AVG_THRESHOLD
+        or total_chars < _SCANNED_PDF_TOTAL_THRESHOLD
+    )
+
+    if is_scanned:
+        if ocr_fallback_txt is None:
+            raise ScannedPdfDetected(
+                n_pages=n_pages,
+                total_chars=total_chars,
+                avg_per_page=avg_per_page,
+                pdf_path=path,
+            )
+        if not ocr_fallback_txt.exists():
+            print(
+                f"[错误] --ocr-text 指定的文件不存在:{ocr_fallback_txt}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        return ocr_fallback_txt.read_text(encoding="utf-8")
+
+    return full_text
+
+
+def print_scanned_pdf_help(e: ScannedPdfDetected) -> None:
+    """V3-6: 扫描版 PDF 检测命中时的用户友好引导(列 3 条路径)。"""
+    msg = f"""[错误] 检测到疑似扫描版 PDF:
+  文件:{e.pdf_path}
+  全文 {e.n_pages} 页 / {e.total_chars} 字符 / 平均 {e.avg_per_page:.1f} 字/页
+  阈值:{_SCANNED_PDF_AVG_THRESHOLD} 字/页(实测文字版招标 PDF 平均 466~700+ 字/页)
+
+扫描版 PDF 没有内嵌文字流,pdfplumber 无法提取文本。请按以下三条路径之一处理:
+
+[路径 1] 本地 OCR(推荐技术用户)
+  pip install ocrmypdf
+  装 tesseract(含 chi_sim 中文包)
+  ocrmypdf -l chi_sim "<原 PDF>" "<输出 PDF>"
+  然后用输出 PDF 重跑 parse_tender
+
+[路径 2] 外部 OCR / AI 多模态服务
+  上传扫描版 PDF 到豆包/通义/Claude/GPT 等多模态 AI
+  让其转出纯文本(注意核对 ★/▲ 条款逐字)
+  存为 <pdf_name>.txt,重跑:
+    parse_tender.py "<原 PDF>" --ocr-text "<pdf_name>.txt"
+
+[路径 3] 找原版文字 PDF
+  联系采购方 / 招标代理获取从 Word 直接导出的文字版 PDF
+  最稳妥,不引入 OCR 错字风险
+
+详见 docs/FAQ.md Q4。
+
+[退出] 扫描版 PDF 处理需用户介入,parse_tender 暂停。"""
+    print(msg, file=sys.stderr)
 
 
 def extract_all_tables(pdf_path: Path) -> list:
@@ -381,15 +464,17 @@ def extract_score_items_raw_positions(raw_text: str, section_anchors: list[dict]
     return positions
 
 
-def parse_tender(tender_path: Path) -> dict:
+def parse_tender(tender_path: Path, ocr_fallback_txt: Path | None = None) -> dict:
     """主解析函数,返回结构化的 dict。
 
     章节定位不再由脚本完成——脚本只产出 raw_lines_for_ai 供 AI 标注,
     AI 标注 section_anchors 后由 extract_section_by_anchors() 抽取内容。
+
+    V3-6: ocr_fallback_txt 参数仅对 PDF 路径生效,docx 路径不受影响。
     """
     suffix = tender_path.suffix.lower()
     if suffix == ".pdf":
-        raw = read_pdf(tender_path)
+        raw = read_pdf(tender_path, ocr_fallback_txt=ocr_fallback_txt)
     elif suffix == ".docx":
         raw = read_docx(tender_path)
     else:
@@ -664,6 +749,14 @@ def main():
         action="store_true",
         help="目标 output/tender_brief.json 已存在时强制覆盖(默认拒绝,防止误覆盖已填字段)",
     )
+    parser.add_argument(
+        "--ocr-text",
+        default=None,
+        help=(
+            "V3-6: 扫描版 PDF 的 OCR 结果 txt 路径。命中扫描版检测时,"
+            "作为 raw_text 替代,跳过 PDF 文字提取。详见 docs/FAQ.md Q4。"
+        ),
+    )
     args = parser.parse_args()
 
     # V3-3: timing hook
@@ -715,7 +808,12 @@ def _main_body(args):
         )
 
     print(f"[信息] 正在解析:{tender_path}")
-    result = parse_tender(tender_path)
+    ocr_fallback = Path(args.ocr_text) if args.ocr_text else None
+    try:
+        result = parse_tender(tender_path, ocr_fallback_txt=ocr_fallback)
+    except ScannedPdfDetected as e:
+        print_scanned_pdf_help(e)
+        sys.exit(2)
 
     # 写 JSON(去掉 raw_text 以减小体积,raw_text 单独写一个文件供调试)
     json_result = {k: v for k, v in result.items() if k != "raw_text"}
