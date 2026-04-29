@@ -32,9 +32,14 @@ from parse_tender import (  # noqa: E402
     extract_section_by_anchors,
     extract_substantial_marks,
     extract_score_items_raw_positions,
+    read_pdf,
+    ScannedPdfDetected,
 )
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "parse_tender"
+TEXT_PDF = FIXTURES / "text_pdf_naturalsci.pdf"
+SCANNED_PDF = FIXTURES / "scanned_synthetic.pdf"
+SCANNED_FALLBACK = FIXTURES / "scanned_fallback.txt"
 
 
 def main() -> int:
@@ -172,6 +177,109 @@ def main() -> int:
     print(f"  [{'PASS' if ok else 'FAIL'}] case_10_score_items_no_anchor_fallback")
     if not ok:
         print(f"           positions: {positions}")
+        fails += 1
+
+    # ==== V3-6 扫描版 PDF 检测 case 11-15 ====
+
+    # ---- case 11: 文字版 PDF (text_pdf_naturalsci) → 不误报,正常返回非空字符串 ----
+    cases += 1
+    text = read_pdf(TEXT_PDF)
+    ok = isinstance(text, str) and len(text) > 20000
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_11_text_pdf_naturalsci_passes")
+    if not ok:
+        print(f"           len(text)={len(text) if isinstance(text, str) else 'not-str'}")
+        fails += 1
+
+    # ---- case 12: 扫描版 PDF 无 fallback → 抛 ScannedPdfDetected ----
+    cases += 1
+    raised = False
+    err_attrs = None
+    try:
+        read_pdf(SCANNED_PDF)
+    except ScannedPdfDetected as e:
+        raised = True
+        err_attrs = (e.n_pages, e.total_chars, e.avg_per_page)
+    ok = raised and err_attrs == (4, 0, 0.0)
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_12_scanned_pdf_raises_without_fallback")
+    if not ok:
+        print(f"           raised={raised}, attrs={err_attrs}")
+        fails += 1
+
+    # ---- case 13: 扫描版 PDF + fallback txt → 走 txt 内容 ----
+    cases += 1
+    text = read_pdf(SCANNED_PDF, ocr_fallback_txt=SCANNED_FALLBACK)
+    expected_marker = "TC250E06T-V3-6-FIXTURE"
+    ok = isinstance(text, str) and expected_marker in text
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_13_scanned_pdf_with_fallback_returns_txt")
+    if not ok:
+        print(f"           len={len(text) if isinstance(text, str) else 'not-str'}, "
+              f"marker_in_text={expected_marker in text if isinstance(text, str) else 'N/A'}")
+        fails += 1
+
+    # ---- case 14: 扫描版 PDF + 不存在的 fallback 路径 → SystemExit(1) ----
+    cases += 1
+    nonexist = FIXTURES / "_no_such_fallback.txt"
+    exit_code = None
+    try:
+        read_pdf(SCANNED_PDF, ocr_fallback_txt=nonexist)
+    except SystemExit as e:
+        exit_code = e.code
+    ok = exit_code == 1
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_14_missing_fallback_exits_1")
+    if not ok:
+        print(f"           exit_code={exit_code}")
+        fails += 1
+
+    # ---- case 15: 阈值边界单元 (mock pdfplumber.open) ----
+    cases += 1
+    from unittest.mock import patch, MagicMock
+
+    def _make_fake_pdfplumber(page_texts):
+        cm = MagicMock()
+        pages = [MagicMock() for _ in page_texts]
+        for p, t in zip(pages, page_texts):
+            p.extract_text.return_value = t
+        cm.__enter__.return_value.pages = pages
+        return cm
+
+    sub_results = {}
+
+    # avg=49 (10 页 × 49 字 = 490 总字符,avg<50 触发) → 扫描版
+    with patch("pdfplumber.open", return_value=_make_fake_pdfplumber([" " * 49] * 10)):
+        try:
+            read_pdf(Path("mock.pdf"))
+            sub_results["avg_49"] = False
+        except ScannedPdfDetected:
+            sub_results["avg_49"] = True
+
+    # avg=51 (10 页 × 51 = 510 总字符,avg≥50 且 total≥100) → 文字版
+    with patch("pdfplumber.open", return_value=_make_fake_pdfplumber(["a" * 51] * 10)):
+        try:
+            result = read_pdf(Path("mock.pdf"))
+            sub_results["avg_51"] = isinstance(result, str) and len(result) > 0
+        except ScannedPdfDetected:
+            sub_results["avg_51"] = False
+
+    # total<100 兜底 (2 页 × 40 = 80,avg=40 也 <50,但兜底也命中) → 扫描版
+    with patch("pdfplumber.open", return_value=_make_fake_pdfplumber(["a" * 40] * 2)):
+        try:
+            read_pdf(Path("mock.pdf"))
+            sub_results["total_lt_100"] = False
+        except ScannedPdfDetected:
+            sub_results["total_lt_100"] = True
+
+    # 0 页 → 扫描版
+    with patch("pdfplumber.open", return_value=_make_fake_pdfplumber([])):
+        try:
+            read_pdf(Path("mock.pdf"))
+            sub_results["zero_pages"] = False
+        except ScannedPdfDetected:
+            sub_results["zero_pages"] = True
+
+    ok = all(sub_results.values())
+    print(f"  [{'PASS' if ok else 'FAIL'}] case_15_threshold_boundary_units")
+    if not ok:
+        print(f"           sub_results={sub_results}")
         fails += 1
 
     print()

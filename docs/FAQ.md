@@ -39,20 +39,57 @@
 
 4. **多家 own 主体时停下让你选**。若你 `companies.yaml` 有 ≥2 家合格 own,`select_bidding_entity.py` 会交互式让你选编号,AI 不会代选(见 `CLAUDE.md` **红线 6**)。非交互跑用 `--entity-id <id>` 明示,否则会报缺参数退出。
 
-## Q4: 扫描版 PDF 招标文件能直接跑 `parse_tender.py` 吗?
+## Q4: 扫描版 PDF 招标文件怎么处理?
 
-**不能,要先 OCR 转成文字版 PDF**。工具链的 PDF 解析走 `pdfplumber` 的 `extract_text()` 和 `extract_tables()`,这两个 API 只读 PDF 内嵌文字流,不识别图像像素。招标文件 PDF 有两种来源:
+`parse_tender.py` 自 V3-6 起会**自动检测扫描版 PDF**(全文平均 < 50 字/页;实测文字版 PDF 平均 466~700+ 字/页,9× 安全余量)。命中扫描版时脚本退出码 2,提示三条用户路径。
 
-- **原生文字版**(从 Word / WPS 直接导出为 PDF):内嵌文字流,可直接跑 `parse_tender.py`。判别方法:用 Acrobat / Foxit 打开,能选中复制文字 = 文字版。
-- **扫描版**(纸质文件扫描成图):每页是图像,没有文字流。`parse_tender.py` 跑完后 `tender_raw.txt` 基本空白,`extracted` 全部留空,下游全链路作废。
+**判别原理**:`pdfplumber.extract_text()` 只读 PDF 内嵌文字流,不识别图像像素。文字版 PDF(从 Word / WPS 直接导出)字符密度高;扫描版 PDF(纸质扫描成图)每页是图像,提取出 0 字符。
 
-**处理扫描版的推荐流程**:
+### 路径 1:本地 OCR(推荐技术用户)
 
-1. 用 Adobe Acrobat Pro(付费)或 WPS 专业版的"文字识别/OCR"功能,把扫描版 PDF 转成"可检索 PDF"(原图 + 识别出的文字层),保存为新文件
-2. 或用开源 OCR:`ocrmypdf input.pdf output.pdf -l chi_sim`(需提前 `pip install ocrmypdf` 并安装 tesseract 中文包)
-3. 转完后再跑 `parse_tender.py` 对 OCR 版 PDF
+```bash
+pip install ocrmypdf
+# 同时装 tesseract 系统级二进制 + chi_sim 中文语言包
+ocrmypdf -l chi_sim "<原 PDF>" "<输出 PDF>"
+# 用输出 PDF 重跑 parse_tender(无 fallback flag)
+parse_tender.py "<输出 PDF>"
+```
 
-**特别注意**:OCR 有错字率,关键字段(项目预算、工期、★/▲ 条款原文、资质门槛数字)在 tender_brief.md review 时务必逐字核对 `tender_raw.txt` 里 OCR 出来的原文——reading review 通过 `.reviewed` 闸门的意义在扫描版场景下权重更高。
+输出 PDF 是原图 + 文字层,既能跑 parse_tender 又保留扫描原图供人工核对。**该路径还能保留 PDF 表格结构**(extract_all_tables 在文字层可识别表格),其他两条路径不行。
+
+### 路径 2:外部 OCR / AI 多模态服务(最便捷)
+
+上传扫描版 PDF 到豆包 / 通义 / Claude / GPT 等多模态 AI,转纯文本:
+
+- 提示词建议:"请把 PDF 完整 OCR 成纯文本,保留原章节编号、★/▲ 条款原文不修改"
+- 把转出的纯文本存为 `<pdf_name>.txt`
+- 跑:
+  ```bash
+  parse_tender.py "<原 PDF>" --ocr-text "<pdf_name>.txt"
+  ```
+- `--ocr-text` flag 让 parse_tender 跳过 PDF 文字提取,直接读 txt 当 raw_text
+
+**重点**:OCR 错字率非零,tender_brief 阶段必须逐字核对 `tender_raw.txt` 与原 PDF——尤其 ★/▲ 条款数字、资质门槛数字、工期天数等关键字段。`.reviewed` 闸门在扫描版场景下权重更高。
+
+### 路径 3:找原版文字 PDF(最稳妥)
+
+联系采购方 / 招标代理,索要从 Word 直接导出的文字版 PDF。最大限度避免 OCR 错字误差,特别在★/▲ 条款数字 / 资质门槛 / 工期天数等关键字段。
+
+### 为什么 V3-6 不内置 OCR
+
+开源场景下用户 OCR 选型差异巨大(本地 ocrmypdf vs 外部 AI vs 商业 OCR),工具链不绑死单一路径。V3-6 只做检测 + 引导 + fallback 通道,OCR 由用户按场景自行选择。`requirements.txt` 不加 ocrmypdf,装 tesseract 是用户操作系统级别的事(Windows 装包要管理员权限,工具链不便代办)。
+
+### 极简 PDF 误报边界
+
+如果你的 PDF 真的只有 1-2 页且字数极少(平均 < 50 字/页),会被误报为扫描版。这种情况:
+
+- 真实场景下 1-2 页 30 字的 PDF 无法当招标文件,误报有警示价值
+- 如果你确认它不是扫描版,可以走路径 2:把 PDF 文本手抄成 txt,用 `--ocr-text` flag 绕过
+
+### 限制
+
+- 扫描版 + fallback txt 模式下,`extract_all_tables` 返回空表(txt 没有 PDF 表格结构)。tables 字段是辅助信息,不影响主流程
+- 加密 PDF 也会被误报为扫描版(pdfplumber 对加密 PDF 提取空文本),需先解密
 
 ## Q5: `check_chapter.py` 报"正文级缝合句嫌疑",是误报怎么办?
 
