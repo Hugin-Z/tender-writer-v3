@@ -208,6 +208,277 @@ def check_key_numbers_consistency(text: str, budget_yuan: float | None) -> list[
 
 
 # ─────────────────────────────────────────────
+# V3-9: 项 4/5/6 新增检查
+# ─────────────────────────────────────────────
+
+# 项 5 章节识别关键词
+RESUME_SECTION_KEYWORDS = [
+    "简历", "师资", "团队成员", "人员配置", "项目人员", "骨干", "人员",
+]
+ORG_SECTION_KEYWORDS = [
+    "组织架构", "组织结构", "项目组织", "人员架构", "团队架构", "团队组成",
+]
+
+# 项 5 姓名+职称正则(2-4 字中文姓名 + 必选连接符 + 0-3 字间隔 + 职称白名单)
+# V3-9 commit 1 内 NAME_RE 跨人验证: "张三负责整体管理,李四担任技术负责人" 不抓张三+技术负责人
+# 必选连接符: 逗号/顿号 OR 指示词(担任/为/出任/是/负责)
+# 0-3 字间隔(不是 0-10 字),避免误抓非姓名 4 字串("整体管理"/"具体负责")+ 职称
+NAME_RE = re.compile(
+    r"([一-龥]{2,4})"
+    r"(?:"
+    r"[,，、]\s*(?:担任|为|出任|是|负责)?\s*"
+    r"|"
+    r"(?:担任|为|出任|是|负责)\s*"
+    r")"
+    r"(?:[一-龥]{0,3})?"
+    r"(项目经理|项目负责人|技术负责人|主讲|讲师|顾问|专家|总监|副总|经理"
+    r"|架构师|工程师|设计师|实施|运维)"
+)
+
+# 项 6 章节交叉引用正则(必须含引用动词 + 编号)
+REF_RE = re.compile(
+    r"(?:详见|见|参见|参考|参照)\s*"
+    r"(?:第\s*)?"
+    r"(\d+(?:\.\d+){0,2})"
+    r"\s*(?:章|节|条|款)?"
+)
+HEADING_NUM_RE = re.compile(r"^(\d+(?:\.\d+){0,2})")
+
+
+def _normalize_for_token(s: str) -> list[str]:
+    """V3-9 项 4: 把字段切成 4 字滑窗 token 集合(用于 jaccard 相似度)。"""
+    s = re.sub(r"\s+", "", s)
+    s = re.sub(r"[，。、（）()【】《》\"\"''""]", "", s)
+    if len(s) < 4:
+        return [s] if s else []
+    return [s[i:i + 4] for i in range(len(s) - 3)]
+
+
+def _jaccard(a: list[str], b: list[str]) -> float:
+    """V3-9 项 4: jaccard 相似度,空集合返回 0.0。"""
+    sa, sb = set(a), set(b)
+    if not sa or not sb:
+        return 0.0
+    return len(sa & sb) / len(sa | sb)
+
+
+def check_field_consistency(
+    extracted: dict,
+    docx_text: str,
+    docx_headings: list[str] | None = None,
+) -> list[str]:
+    """V3-9 项 4: 检查 brief vs docx 字段一致性,允许代称模式。
+
+    project_name: 优先扫 docx 前 500 字符 + Heading 1 标题(项目名最常见在封面/章节标题);
+                  若上述均无 jaccard ≥ 0.4 候选,降级全文"项目"附近 30 字窗口
+    buyer_name / buyer_agency_name: docx 完整出现 → 通过;0 次 + 含代称 → 信息;0 次 + 无代称 → 警告
+    """
+    issues = []
+    pn = (extracted.get("project_name") or "").strip()
+    bn = (extracted.get("buyer_name") or "").strip()
+    ba = (extracted.get("buyer_agency_name") or "").strip()
+
+    if pn:
+        pn_tokens = _normalize_for_token(pn)
+        candidates = [docx_text[:500]]
+        if docx_headings:
+            candidates.extend(docx_headings)
+
+        best_jaccard = max(
+            (_jaccard(pn_tokens, _normalize_for_token(c)) for c in candidates),
+            default=0.0,
+        )
+
+        if best_jaccard < 0.4:
+            fallback_cands = []
+            for m in re.finditer(r"项目", docx_text):
+                start = max(0, m.start() - 30)
+                end = min(len(docx_text), m.end() + 5)
+                fallback_cands.append(docx_text[start:end])
+            if fallback_cands:
+                fallback_jaccard = max(
+                    _jaccard(pn_tokens, _normalize_for_token(c)) for c in fallback_cands
+                )
+                if fallback_jaccard > best_jaccard:
+                    best_jaccard = fallback_jaccard
+                    candidates.extend(fallback_cands)
+
+        if best_jaccard >= 0.7:
+            issues.append(f"[通过] 项目名一致性: brief vs docx jaccard={best_jaccard:.2f}")
+        elif best_jaccard >= 0.4:
+            best = max(candidates, key=lambda c: _jaccard(pn_tokens, _normalize_for_token(c)))
+            issues.append(
+                f"[警告] 项目名 brief vs docx 部分不一致: jaccard={best_jaccard:.2f}\n"
+                f"           brief: {pn!r}\n"
+                f"           docx 最近候选: {best.strip()[:100]!r}"
+            )
+        else:
+            issues.append(
+                f"[失败] 项目名 brief vs docx 严重不一致: jaccard={best_jaccard:.2f}\n"
+                f"           brief: {pn!r}"
+            )
+
+    for label, val in [("采购方 buyer_name", bn), ("代理 buyer_agency_name", ba)]:
+        if not val:
+            continue
+        normalized_docx = re.sub(r"\s+", "", docx_text)
+        normalized_val = re.sub(r"\s+", "", val)
+        if normalized_val in normalized_docx:
+            issues.append(f"[通过] {label} docx 完整出现")
+        else:
+            has_proxy_term = any(
+                term in docx_text for term in ["采购人", "招标方", "委托方", "甲方"]
+            )
+            if has_proxy_term:
+                issues.append(
+                    f"[信息] {label}={val!r} docx 用代称(采购人/招标方/委托方/甲方),不强校验"
+                )
+            else:
+                issues.append(f"[警告] {label}={val!r} docx 既无完整名也无代称")
+
+    return issues
+
+
+def _split_sections_by_heading(doc) -> dict[str, list[str]]:
+    """V3-9 项 5: 按 Heading 1/2/3 切分章节,返回 {章节标题: [段落文本]}。"""
+    sections = {}
+    cur_title = None
+    cur_paras = []
+    for p in doc.paragraphs:
+        style = getattr(p.style, "name", "")
+        if "Heading" in style and p.text.strip():
+            if cur_title is not None:
+                sections[cur_title] = cur_paras
+            cur_title = p.text.strip()
+            cur_paras = []
+        elif p.text.strip():
+            cur_paras.append(p.text)
+    if cur_title is not None:
+        sections[cur_title] = cur_paras
+    return sections
+
+
+def check_resume_org_consistency(docx_path: Path) -> list[str]:
+    """V3-9 项 5: 检查简历章节 vs 组织架构图 中的人名职称对应关系。
+
+    简历章节: Heading 标题含简历/师资/团队成员/人员配置/项目人员/骨干/人员
+    架构章节: Heading 标题含组织架构/组织结构/项目组织/人员架构/团队架构/团队组成
+    """
+    issues = []
+    doc = Document(str(docx_path))
+    sections = _split_sections_by_heading(doc)
+
+    resume_sections = {t: paras for t, paras in sections.items()
+                       if any(kw in t for kw in RESUME_SECTION_KEYWORDS)}
+    org_sections = {t: paras for t, paras in sections.items()
+                    if any(kw in t for kw in ORG_SECTION_KEYWORDS)}
+
+    if not resume_sections:
+        issues.append("[信息] docx 未识别到简历章节(标题含简历/师资/团队成员等),跳过项 5")
+        return issues
+    if not org_sections:
+        issues.append("[信息] docx 未识别到组织架构章节(标题含组织架构/项目组织等),跳过项 5")
+        return issues
+
+    def extract_pairs(paras: list[str]) -> dict[str, set[str]]:
+        d = {}
+        for para in paras:
+            for m in NAME_RE.finditer(para):
+                name, title = m.group(1), m.group(2)
+                if any(skip in name for skip in ["待填", "XX", "示例", "某某"]):
+                    continue
+                d.setdefault(name, set()).add(title)
+        return d
+
+    resume_paras = sum(resume_sections.values(), [])
+    org_paras = sum(org_sections.values(), [])
+    resume_pairs = extract_pairs(resume_paras)
+    org_pairs = extract_pairs(org_paras)
+
+    only_in_resume = set(resume_pairs) - set(org_pairs)
+    only_in_org = set(org_pairs) - set(resume_pairs)
+
+    for name in sorted(only_in_resume):
+        issues.append(
+            f"[警告] 人员 {name!r} 在简历章节出现但组织架构图未列(职称: {sorted(resume_pairs[name])})"
+        )
+    for name in sorted(only_in_org):
+        issues.append(
+            f"[警告] 人员 {name!r} 在组织架构图出现但简历章节未列(职称: {sorted(org_pairs[name])})"
+        )
+
+    common = set(resume_pairs) & set(org_pairs)
+    for name in sorted(common):
+        if resume_pairs[name] & org_pairs[name]:
+            issues.append(f"[通过] 人员 {name!r} 在简历和架构中职称一致或交集非空")
+        else:
+            issues.append(
+                f"[失败] 人员 {name!r} 在简历(职称 {sorted(resume_pairs[name])}) 和架构图"
+                f"(职称 {sorted(org_pairs[name])}) 中职称完全不一致"
+            )
+
+    if not resume_pairs and not org_pairs:
+        issues.append("[信息] 简历/架构章节均未抽到具名人员,跳过(可能用占位符 / 描述)")
+
+    return issues
+
+
+def check_section_ref_validity(docx_path: Path) -> list[str]:
+    """V3-9 项 6: 检查 docx 内章节交叉引用编号是否对应实际章节。
+
+    引用模式: 详见 / 见 / 参见 / 参考 / 参照 + 编号(如 1.2 / 3.1.1)
+    extract_docx_text 已含表格 cell 拼接,自动覆盖表格内引用。
+    """
+    issues = []
+    doc = Document(str(docx_path))
+
+    valid_nums = set()
+    for p in doc.paragraphs:
+        style = getattr(p.style, "name", "")
+        if "Heading" not in style:
+            continue
+        title = p.text.strip()
+        m = HEADING_NUM_RE.match(title)
+        if m:
+            valid_nums.add(m.group(1))
+
+    if not valid_nums:
+        issues.append("[信息] docx 未识别到带编号的 Heading(如 1.1 / 2.3.1),跳过项 6")
+        return issues
+
+    text = extract_docx_text(docx_path)
+    bad_refs = []
+    good_count = 0
+    for m in REF_RE.finditer(text):
+        num = m.group(1)
+        end_pos = m.end()
+        if end_pos < len(text) and text[end_pos] in "元万亿千百":
+            continue
+        if num in valid_nums:
+            good_count += 1
+        else:
+            parent = num.rsplit(".", 1)[0] if "." in num else None
+            if parent and parent in valid_nums:
+                good_count += 1
+            else:
+                bad_refs.append((num, m.group(0)))
+
+    if not bad_refs and good_count == 0:
+        issues.append("[信息] docx 未识别到典型章节交叉引用(详见/见/参见 + 编号),跳过项 6")
+        return issues
+
+    if bad_refs:
+        for num, raw in bad_refs[:10]:
+            issues.append(
+                f"[失败] 章节引用 {raw!r} 指向编号 {num!r},但 docx 章节体系不存在该编号"
+            )
+    if good_count:
+        issues.append(f"[通过] {good_count} 处章节交叉引用编号有效")
+
+    return issues
+
+
+# ─────────────────────────────────────────────
 # 主入口
 # ─────────────────────────────────────────────
 
@@ -310,6 +581,34 @@ def _main_body(args):
     issues = check_key_numbers_consistency(text, budget_yuan)
     if not issues:
         print("  [通过] 未发现明显异常金额")
+    for msg in issues:
+        print(f"  {msg}")
+    all_issues.extend(issues)
+    print()
+
+    # V3-9: 抽 Heading 1 标题列表给项 4 做候选窗口
+    docx_headings = []
+    for p in Document(str(docx_path)).paragraphs:
+        style = getattr(p.style, "name", "")
+        if style == "Heading 1" and p.text.strip():
+            docx_headings.append(p.text.strip())
+
+    print("[检查 4] 字段一致性: 项目名 / 采购方 / 代理")
+    issues = check_field_consistency(extracted, text, docx_headings=docx_headings)
+    for msg in issues:
+        print(f"  {msg}")
+    all_issues.extend(issues)
+    print()
+
+    print("[检查 5] 简历 / 组织架构 人名一致性")
+    issues = check_resume_org_consistency(docx_path)
+    for msg in issues:
+        print(f"  {msg}")
+    all_issues.extend(issues)
+    print()
+
+    print("[检查 6] 章节交叉引用编号正确性")
+    issues = check_section_ref_validity(docx_path)
     for msg in issues:
         print(f"  {msg}")
     all_issues.extend(issues)
