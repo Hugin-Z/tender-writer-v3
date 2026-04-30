@@ -279,44 +279,54 @@ def check_field_consistency(
     ba = (extracted.get("buyer_agency_name") or "").strip()
 
     if pn:
-        pn_tokens = _normalize_for_token(pn)
-        candidates = [docx_text[:500]]
-        if docx_headings:
-            candidates.extend(docx_headings)
-
-        best_jaccard = max(
-            (_jaccard(pn_tokens, _normalize_for_token(c)) for c in candidates),
-            default=0.0,
-        )
-
-        if best_jaccard < 0.4:
-            fallback_cands = []
-            for m in re.finditer(r"项目", docx_text):
-                start = max(0, m.start() - 30)
-                end = min(len(docx_text), m.end() + 5)
-                fallback_cands.append(docx_text[start:end])
-            if fallback_cands:
-                fallback_jaccard = max(
-                    _jaccard(pn_tokens, _normalize_for_token(c)) for c in fallback_cands
-                )
-                if fallback_jaccard > best_jaccard:
-                    best_jaccard = fallback_jaccard
-                    candidates.extend(fallback_cands)
-
-        if best_jaccard >= 0.7:
-            issues.append(f"[通过] 项目名一致性: brief vs docx jaccard={best_jaccard:.2f}")
-        elif best_jaccard >= 0.4:
-            best = max(candidates, key=lambda c: _jaccard(pn_tokens, _normalize_for_token(c)))
-            issues.append(
-                f"[警告] 项目名 brief vs docx 部分不一致: jaccard={best_jaccard:.2f}\n"
-                f"           brief: {pn!r}\n"
-                f"           docx 最近候选: {best.strip()[:100]!r}"
-            )
+        # 第一道:substring 完整匹配。brief 字面去空格标点后在 docx 中完整出现 → 通过
+        # 避免短窗口 jaccard 因分母稀释产生误报(clean fixture 中 brief = docx 但
+        # 候选窗口截断到 brief 前段时 jaccard 反而 < 0.7)
+        _strip_re = re.compile(r"[\s，。、（）()【】《》]")
+        normalized_pn = _strip_re.sub("", pn)
+        normalized_docx = _strip_re.sub("", docx_text)
+        if normalized_pn and normalized_pn in normalized_docx:
+            issues.append(f"[通过] 项目名一致性: brief 字面完整出现在 docx")
         else:
-            issues.append(
-                f"[失败] 项目名 brief vs docx 严重不一致: jaccard={best_jaccard:.2f}\n"
-                f"           brief: {pn!r}"
+            # 第二道:候选窗口 + jaccard 4 字滑窗
+            pn_tokens = _normalize_for_token(pn)
+            candidates = [docx_text[:500]]
+            if docx_headings:
+                candidates.extend(docx_headings)
+
+            best_jaccard = max(
+                (_jaccard(pn_tokens, _normalize_for_token(c)) for c in candidates),
+                default=0.0,
             )
+
+            if best_jaccard < 0.4:
+                fallback_cands = []
+                for m in re.finditer(r"项目", docx_text):
+                    start = max(0, m.start() - 30)
+                    end = min(len(docx_text), m.end() + 5)
+                    fallback_cands.append(docx_text[start:end])
+                if fallback_cands:
+                    fallback_jaccard = max(
+                        _jaccard(pn_tokens, _normalize_for_token(c)) for c in fallback_cands
+                    )
+                    if fallback_jaccard > best_jaccard:
+                        best_jaccard = fallback_jaccard
+                        candidates.extend(fallback_cands)
+
+            if best_jaccard >= 0.7:
+                issues.append(f"[通过] 项目名一致性: brief vs docx jaccard={best_jaccard:.2f}")
+            elif best_jaccard >= 0.4:
+                best = max(candidates, key=lambda c: _jaccard(pn_tokens, _normalize_for_token(c)))
+                issues.append(
+                    f"[警告] 项目名 brief vs docx 部分不一致: jaccard={best_jaccard:.2f}\n"
+                    f"           brief: {pn!r}\n"
+                    f"           docx 最近候选: {best.strip()[:100]!r}"
+                )
+            else:
+                issues.append(
+                    f"[失败] 项目名 brief vs docx 严重不一致: jaccard={best_jaccard:.2f}\n"
+                    f"           brief: {pn!r}"
+                )
 
     for label, val in [("采购方 buyer_name", bn), ("代理 buyer_agency_name", ba)]:
         if not val:
@@ -380,12 +390,19 @@ def check_resume_org_consistency(docx_path: Path) -> list[str]:
         issues.append("[信息] docx 未识别到组织架构章节(标题含组织架构/项目组织等),跳过项 5")
         return issues
 
+    # 占位符 + 职称语义词(中文姓名一般不含这些字面)过滤
+    NAME_SKIP_PHRASES = [
+        "待填", "XX", "示例", "某某",
+        "负责", "牵头", "工程", "架构", "设计", "担任", "统筹",
+        "经理", "主讲", "顾问", "专家", "总监", "副总", "实施", "运维",
+    ]
+
     def extract_pairs(paras: list[str]) -> dict[str, set[str]]:
         d = {}
         for para in paras:
             for m in NAME_RE.finditer(para):
                 name, title = m.group(1), m.group(2)
-                if any(skip in name for skip in ["待填", "XX", "示例", "某某"]):
+                if any(skip in name for skip in NAME_SKIP_PHRASES):
                     continue
                 d.setdefault(name, set()).add(title)
         return d
