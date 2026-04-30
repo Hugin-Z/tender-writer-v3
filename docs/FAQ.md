@@ -124,3 +124,32 @@ parse_tender.py "<输出 PDF>"
    把 30 字窗口拉宽到 40 字,关键词需更密集才命中。
 
 **不建议**:把阈值无限往上调("调到不报错为止")。如果整体阈值要从 6/7 继续往 7/8 拉,说明可能是关键词集合太大(scoring_matrix 第 5 列关键词过密)或算法本身需要换思路(加连接词检测 / 句法分析),而不是参数调整能解决——遇到这种情况停下手工 review 章节,或在 git issue 反馈。
+
+## Q6: 想重跑 `parse_tender` 取 demo 数据,怎么干净开始?
+
+V3-3 baseline / 后续 V3-N+ 重跑 parse_tender 取 demo 数据时,直接跑 `parse_tender --force` 会覆盖 `tender_brief.json` 等产物,**留下 git diff**。手工 `git restore projects/demo_cadre_training/output/` 也行,但范围模糊(到底动哪些文件 / 是否动 .reviewed)。
+
+V3-13 提供 `scripts/demo_reset.py` 标准化路径:
+
+```bash
+# 1. 预览(默认 dry-run,只显示要 restore 的文件)
+./run_script.bat demo_reset.py
+
+# 2. 确认执行
+./run_script.bat demo_reset.py --yes
+
+# 3. 跑 parse_tender --force(.reviewed 仍在,ensure_reviewed 闸门 pass)
+./run_script.bat parse_tender.py \
+    projects/demo_cadre_training/input/tender_demo.docx \
+    --out projects/demo_cadre_training/output --force
+```
+
+**脚本行为承诺**:
+
+- **只 restore git tracked 文件**(43 个,见 `git ls-files projects/demo_cadre_training/output/`)
+- **不动** `tender_brief.reviewed`(标记不入 git,是用户机器本地凭证;红线 1 兼容)
+- **不动** untracked 文件(用户手工放的实验性文件不会被清掉)
+- **不调** `git checkout` / `git clean`(避免误删 / detach HEAD)
+- **不重跑** `parse_tender`(只 reset,跑由用户)
+
+**仅服务 demo_cadre_training 项目**——脚本 hardcode 路径,不接受 `--project` flag。真实项目用户自己 git restore 自己的 output/。
