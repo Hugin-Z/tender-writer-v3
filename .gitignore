@@ -31,7 +31,7 @@ Thumbs.db
 *.reviewed
 
 # 临时测试产物
-/tmp/roundb_*
+/tmp/
 *.tmp
 *.bak
 
