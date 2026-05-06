@@ -112,11 +112,11 @@ if errorlevel 1 (
     echo.
     echo   [方式二] 其他能操作本地文件的 AI^(Qwen Code / Trae / Cline 等^):
     echo     在工作目录下启动你的 AI 工具,手动让它读取
-    echo     tender-writer\SKILL.md 并按其中的五阶段工作流推进
+    echo     tender-writer\SKILL.md 并按其中的五阶段主干 + 并列阶段工作流推进
     echo.
     echo   [方式三] 纯对话 AI^(Kimi / 豆包 / 文心一言 等^):
     echo     注意:本 skill 依赖本地脚本执行,纯对话 AI 不能完整运行。
-    echo     可参考 SKILL.md 文本作为提示词素材,但无法执行五阶段脚本。
+    echo     可参考 SKILL.md 文本作为提示词素材,但无法执行五阶段主干 + 并列阶段脚本。
     echo.
     echo 详细使用说明请阅读 README.md
     echo.

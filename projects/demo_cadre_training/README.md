@@ -87,7 +87,7 @@ rm -rf projects/your_project/output/*
 rm -rf projects/your_project/final_tender_package
 rm -rf projects/your_project/投标交付物
 
-# 3. 按 SKILL.md 五阶段流程,在 Claude Code 里:
+# 3. 按 SKILL.md 五阶段主干 + 并列阶段流程,在 Claude Code 里:
 # "请读取 SKILL.md,处理 projects/your_project/ 的标书编制"
 ```
 

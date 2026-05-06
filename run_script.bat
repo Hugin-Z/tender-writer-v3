@@ -3,7 +3,7 @@ REM ============================================================
 REM  tender-writer 脚本调用入口
 REM  用途:通过本地 venv 里的 python 执行 scripts\ 下的脚本
 REM        所有 AI 工具(Claude Code / Qwen Code / Trae / Cline 等)
-REM        在五阶段工作流中应统一通过本脚本调用 Python 脚本,
+REM        在五阶段主干 + 并列阶段工作流中应统一通过本脚本调用 Python 脚本,
 REM        而不是直接 python xxx.py(否则会因为缺包而报错)
 REM  使用方法:run_script.bat <脚本名> <参数1> <参数2> ...
 REM  示例:    run_script.bat parse_tender.py "D:\xxx\招标文件.pdf"

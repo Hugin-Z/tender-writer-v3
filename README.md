@@ -28,7 +28,7 @@ install.bat
 
 ## 核心能力
 
-- **五阶段工作流**:招标文件解析 → 评分矩阵 → 提纲 → 分章节撰写 → 合规终审,每阶段可 review
+- **五阶段主干工作流**:招标文件解析 → 评分矩阵 → 提纲 → 分章节撰写 → 合规终审,每阶段可 review;另含并列阶段 4-B(B 模式材料组装) / 4-C(C 模式模板填充) / 6(交付层导出)
 - **评分矩阵追踪**:10 列 CSV 把每一分拆到应答章节,杜绝漏答
 - **项目类型识别**:工程 / 平台 / 研究 / 规划 / 其他 5 类自动选 outline 模板
 - **docx 渲染质量**:统一中文宋体、黑色标题、图占位区块、字号相对规则、空格自动清理
@@ -47,7 +47,7 @@ v2 基于 v1.1 经过两轮迭代沉淀十项改进,核心变化:AI 输出规则
 
 ## 与 AI 工具的兼容性
 
-- **Claude Code(推荐)**:项目级协作深度最优,读取 `SKILL.md` + `CLAUDE.md` 走完整五阶段;进阶用户建议读 [CLAUDE.md](CLAUDE.md) 了解工具链协作契约
+- **Claude Code(推荐)**:项目级协作深度最优,读取 `SKILL.md` + `CLAUDE.md` 走完整五阶段主干 + 并列阶段;进阶用户建议读 [CLAUDE.md](CLAUDE.md) 了解工具链协作契约
 - **Cline / Cursor / 通义灵码 / 等其他 AI IDE 插件**:能读 `SKILL.md` 即可工作,部分硬红线靠 `references/ai_output_rules.md` 兜底
 - **纯对话 AI(ChatGPT / DeepSeek Web 等)**:把 SKILL.md 和当前阶段文件发给 AI,按阶段手工推进
 
@@ -65,7 +65,7 @@ v2 基于 v1.1 经过两轮迭代沉淀十项改进,核心变化:AI 输出规则
 
 | 文档 | 面向 |
 |---|---|
-| [SKILL.md](SKILL.md) | 五阶段工作流细节,AI 入口,必读 |
+| [SKILL.md](SKILL.md) | 五阶段主干 + 并列阶段工作流细节,AI 入口,必读 |
 | [CLAUDE.md](CLAUDE.md) | Claude Code 协作契约,6 条硬红线 |
 | [docs/v2_design_notes.md](docs/v2_design_notes.md) | 设计决策记录 |
 | [docs/v2_roadmap.md](docs/v2_roadmap.md) | 未来路线图 |
