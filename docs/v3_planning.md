@@ -276,36 +276,58 @@ v2.0.0 / v2.0.1 已封板,v2.0.x 不再打补丁。所有 v2.0.x 期间登记但
 
 **来源**:V3-3 baseline run 衍生的运维工具债,V3-3 Phase 3 review 由用户登记。
 
-### V3-14 · 开源前最终审计
+### V3-14 · 开源前最终审计(四层结构)
 
 **状态**:待开始
 
-**优先级**:🟢 中(V3 收尾时做)
+**优先级**:🟢 中(V3 收尾时做,push 前必做 a+b+c1-3+d)
 
-**现状**:V3 期间所有 commit 留本地 main,未 push 远程。开源前需做最终审计。
+**现状**:V3 期间所有 commit 留本地 main,未 push 远程。开源前需做四层审计,机器扫 + 行为验证 + 语义一致性 + 新文件准备。原 V3-14 范围(仅敏感信息扫描)过窄,实际开源前需覆盖代码行为与文档语义一致性等更深层问题。
 
 **做什么**:
 
-- 全仓 grep 敏感字符串(真实公司名、人名、API key、内网 IP、硬件路径)
-- 审 demo_cadre_training 项目源 PDF 是否公开来源
-- 审 demo own_demo 下 fixture docx 是否真为生成的 placeholder(已确认)
-- 审 timing baseline 是否暴露 hostname / 用户路径
-- 审 commit history 是否含临时调试输出 / 早期未脱敏内容
-- 准备开源所需文档:LICENSE / CONTRIBUTING.md / 系统依赖说明
-- README 加"开源版本边界"段:不集成 OCR / 用户自负责 OCR 选型 等
+V3-14a · 机器可扫(grep / 工具搞定):
+- 敏感信息扫描(真实公司名 / 人名 / API key / 内网 IP / 硬件路径)
+- 死链接扫描(README/SKILL/docs 里指向的文件 / URL 是否存在)
+- TODO / FIXME / XXX 残留扫描
+- commit log 里临时调试措辞("wip" / "test commit" 等)
+- 文件大小异常扫描(>5MB 单文件人工复核)
+
+V3-14b · 代码行为验证(Claude Code 跑代码确认):
+- 每个 V3-N(N=1..13)完成判定重跑一遍,验证至今未回归
+- demo_cadre_training 端到端跑通(parse_tender → ... → export_deliverables)
+- README 里所有命令示例真实可跑
+- docs/manifest_schema.md 和 b_mode_extract.py 实际产出 schema diff
+- SKILL.md 里所有"举例如:..."的例子真实可复现
+
+V3-14c · 语义一致性(审核位分批审):
+- 批次 1:README.md + SKILL.md + DESIGN.md 三文件互相口径对得上
+- 批次 2:所有 plans/v3-*.md + v3_planning.md 承诺与完成判定对得上
+- 批次 3:docs/FAQ.md + docs/manifest_schema.md + docs/ 其他文件内部交叉引用
+- 批次 4(push 后做):所有 commit message 整体审
+- 批次 5(push 后做):scripts/ 顶部 docstring 整体审
+
+V3-14d · 开源所需新文件:
+- LICENSE(license 选型用户决策)
+- CONTRIBUTING.md(开源协作约定)
+- README 顶部加 badge / 系统依赖说明 / 快速开始 / 项目状态
 
 **完成判定**:
 
-- 敏感信息 grep 报告:0 命中
-- 仓库可在干净环境 clone + 装 requirements + 跑 demo 不报错
-- LICENSE / CONTRIBUTING.md 就位
-- README 系统依赖段明确(只列 Python / pip 依赖,不列 OCR 等可选)
+push 前必过:
+- V3-14a 全跑,敏感 grep 报告 0 命中(或人工确认每个命中是误报)
+- V3-14b 全跑,demo 端到端 0 报错,所有 V3-N 完成判定 PASS
+- V3-14c 批次 1-3 审完,所有不一致已修
+- V3-14d LICENSE / CONTRIBUTING.md / README 升级就位
 
-**预估**:2-3 小时
+push 后可做:
+- V3-14c 批次 4-5 polish
 
-**依赖**:V3-1 至 V3-13 全部完成
+**预估**:5-8 小时(原 2-3h 估算偏低,四层拆分后实际负担)
 
-**来源**:V3-6 路径讨论时由用户登记。开源是 V3 收尾下一步动作。
+**依赖**:V3-1 至 V3-13 全部完成 ✓
+
+**来源**:V3-6 路径讨论时由用户登记,V3-13 完成后用户提出"代码与文档一致性等深层审计"扩展为四层结构。
 
 ## 不做项(显式记录)
 
