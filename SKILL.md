@@ -35,7 +35,7 @@ description: 政府类项目投标文件(技术标)编制专家。当用户上�
 
 ### 5. 脚本与 AI 职责边界
 
-> **Skill 模型声明见 business_model §9**。本节是 skill 模型在日常工作流中的具体应用。
+> 本节定义脚本与 AI 在工作流中的职责边界,是后续阶段的元规则。
 
 脚本做纯数据处理（格式转换、字段校验、文件读写），不做语义推断。`production_mode`（Part 生产模式）和 `part_attribution`（评分项归属 Part）的判断是 AI 职责（阶段 1 Step 5/6），脚本只负责校验这些字段是否已填充且格式合法。缺失字段时脚本硬失败（退出码 1），不静默兜底。
 
@@ -60,8 +60,8 @@ description: 政府类项目投标文件(技术标)编制专家。当用户上�
    **重跑保护(V80)**:parse_tender 默认拒绝覆盖已存在的 `output/tender_brief.json`。如果因招标文件更新或逻辑调整需要重跑,加 `--force` 参数。重跑后 extracted 字段回到空骨架,.reviewed 标记失效,需重新走 Step 2A + Step 3 review 流程。不加 --force 时脚本会提示错误并退出。
 
 2. 脚本会输出:
-   - `output/tender_brief.json`:含 `raw_lines_for_ai`(带行号+特征的全文行列表)、`tables`(**V56 新增**:PDF 中所有表格的二维结构,详见下方)、`section_anchors`(空,待 AI 填)、`extracted`(预算/工期/资质/★▲ + V50 基础字段: project_name / project_number / buyer_name / buyer_agency_name 自动提取)、`part_list_candidates`(Part 清单候选段落,脚本自动生成)、`score_items_raw_positions`(评分项粗位置,首次运行为空,二次运行自动生成)
-   - **tables 字段(V56 新增)**:PDF 中所有表格的二维结构,每个 table 含 `table_id` / `page_num` / `headers` / `rows` / `evidence`。由 `pdfplumber.extract_tables()` 自动提取。table_id 全局编号(t_001, t_002, ...)跨页连续。
+   - `output/tender_brief.json`:含 `raw_lines_for_ai`(带行号+特征的全文行列表)、`tables`(PDF 中所有表格的二维结构,详见下方)、`section_anchors`(空,待 AI 填)、`extracted`(预算/工期/资质/★▲ + 项目核心字段: project_name / project_number / buyer_name / buyer_agency_name 自动提取)、`part_list_candidates`(Part 清单候选段落,脚本自动生成)、`score_items_raw_positions`(评分项粗位置,首次运行为空,二次运行自动生成)
+   - **tables 字段**:PDF 中所有表格的二维结构,每个 table 含 `table_id` / `page_num` / `headers` / `rows` / `evidence`。由 `pdfplumber.extract_tables()` 自动提取。table_id 全局编号(t_001, t_002, ...)跨页连续。
    - `output/tender_brief.md`:基于模板填充的 markdown 简报(章节内容待 AI 标注后补充)
    - `output/tender_raw.txt`:纯文本全文
 
@@ -87,11 +87,11 @@ parse_tender.py 产出的 `extracted` 字段是空骨架(9 个字符串字段为
 
 **示例 prompt(直接让对话里的 AI 做)**:
 
-> 以下是 tender_brief.json 的 raw_lines_for_ai 片段,请从中判定并填充 extracted 字段的 10 个字段。找到的值直接填入,未找到的字段填"未在招标文件中找到",不得留空或编造。输出修正后的 extracted dict(JSON 格式)。
+> 以下是 tender_brief.json 的 raw_lines_for_ai 片段,请从中判定并填充 extracted 字段的 11 个字段(10 个字符串 + qualifications 列表)。找到的值直接填入,未找到的字段填"未在招标文件中找到",不得留空或编造。输出修正后的 extracted dict(JSON 格式)。
 >
 > [此处粘贴 raw_lines_for_ai 相关片段]
 
-**背景**: v1.2 初期曾用 parse_tender 脚本的 regex 做初提(带 draft 前缀机制)+ AI 校对两层。v1 哲学清理后改为主 agent 直读原文,脚本不做初提——理由见 business_model §9 + §8.3 #N16。
+**背景**: 早期版本曾用 parse_tender 脚本的 regex 做初提(带 draft 前缀机制)+ AI 校对两层。后续清理后改为主 agent 直读原文,脚本不做初提——脚本只做无歧义数据提取,语义判断交 AI。
 
 **Step 2 — AI 标注 section_anchors**:
 3. AI 读取 `tender_brief.json` 中的 `raw_lines_for_ai`,为以下关键章节标注起止行号,写回 `tender_brief.json` 的 `section_anchors` 字段:
@@ -126,7 +126,7 @@ parse_tender.py 产出的 `extracted` 字段是空骨架(9 个字符串字段为
    - 正文引用:如"详见评审办法第X条"、"按照评审办法前附表的规定",这是引用不是标题,跳过
    - 表格内拍平文本:如果一行看起来像表格单元格拼接(含多个制表符或短语堆叠),不是标题
 
-4. AI 从原文(tender_raw.txt)中**强制**提取以下字段,填入 tender_brief.md 对应位置;**同时校对并补齐 tender_brief.json 的 `extracted` 字段(V50 新增 4 项基础字段)**:
+4. AI 从原文(tender_raw.txt)中**强制**提取以下字段,填入 tender_brief.md 对应位置;**同时校对并补齐 tender_brief.json 的 `extracted` 字段(4 项项目核心信息)**:
    - 项目名称(**写入 `extracted.project_name`**,从招标文件首页/封面/项目概述提取)
    - 项目编号(**写入 `extracted.project_number`**,从封面或项目基本信息提取招标编号/采购编号)
    - 采购人全称(**写入 `extracted.buyer_name`**)
@@ -141,7 +141,7 @@ parse_tender.py 产出的 `extracted` 字段是空骨架(9 个字符串字段为
    - 投标文件构成、装订要求、份数要求
    - 开标时间、地点、投标截止时间
 
-   parse_tender.py 已对 V50 的 4 个基础字段做 regex 初提,AI 必须在 Step 2 校对并修正(regex 可能命中错误或留空,特别是嵌入在段落中的项目名)。这 4 个字段是 C 模式模板填充的重要数据源,必须准确。
+   parse_tender.py 已对 4 个项目核心字段做 regex 初提,AI 必须在 Step 2 校对并修正(regex 可能命中错误或留空,特别是嵌入在段落中的项目名)。这 4 个字段是 C 模式模板填充的重要数据源,必须准确。
 
    **字段处理规则(AI 填充 tender_brief.md 时必须遵守)**:
 
@@ -231,18 +231,18 @@ parse_tender.py 产出的 `extracted` 字段是空骨架(9 个字符串字段为
    ./run_script.bat update_score_positions.py projects/{项目名}/output/tender_brief.json
    ```
 
-**Step 3 — 用户 review(硬门槛 + V52+V53 标记)**:
+**Step 3 — 用户 review(硬门槛 + review 标记)**:
 
 下游脚本(build_scoring_matrix / generate_outline / append_chapter / compliance_check / c_mode_* / update_score_positions)在未 review 状态下启动会硬失败(`ensure_reviewed` 闸口)。
 
 用户打开 `output/tender_brief.json` 或 `output/tender_brief.md`,按以下 checklist 逐项核对:
 
-- [ ] `extracted` 下 10 个字段(9 个字符串 + qualifications 列表)全部由 AI 在 Step 2A 填充完成,无空值或 "__PENDING_AI__" 残留
-- [ ] `project_name` / `project_number` / `buyer_name` / `buyer_agency_name` 四个字段特别确认(V50 引入字段,正则常踩坑)
+- [ ] `extracted` 下 11 个字段(10 个字符串 + qualifications 列表)全部由 AI 在 Step 2A 填充完成,无空值或 "__PENDING_AI__" 残留
+- [ ] `project_name` / `project_number` / `buyer_name` / `buyer_agency_name` 四个字段特别确认(项目核心信息,正则常踩坑)
 - [ ] `★/▲` 条款清单(`substantial_response_marks`)数量和内容符合原文
 - [ ] `response_file_parts` 中每个 Part 的 `production_mode` 归属合理(A/B/C/D/不适用)
 - [ ] `section_anchors` 的章节起止行号无明显错误(重点核对"评审办法"覆盖完整的评分前附表)
-- [ ] **tables 字段(V56)数量合理,关键表(分项报价表、资格审查表、评审因素表)都被提取到**
+- [ ] **tables 字段数量合理,关键表(分项报价表、资格审查表、评审因素表)都被提取到**
 - [ ] **response_file_parts 中表格型 Part 的 `source_anchor.type` 为 `"table"` 且 `table_ids` 指向正确的 table;文本型 Part 为 `"text"`**
 - [ ] 其他顶层字段(source_file、char_count 等)无异常
 - [ ] `tender_brief.md` 所有【待补充】字段已补全,字段填充遵循 Step 2 字段处理规则(#3-#7)
@@ -287,7 +287,7 @@ echo $null > projects/{项目名}/output/tender_brief.reviewed
      - `id`:part_01, part_02, ... 按招标文件原文顺序编号
      - `name`:必须用招标文件原文措辞,不许概括/简化/翻译
      - `order`:整数,与 id 一致
-     - `source_anchor`: **V56 起区分 type**:
+     - `source_anchor`: 区分 type:
        - `type: "text"`(段落/列表/承诺条款等线性文本 Part):`{ type: "text", start_line, end_line, evidence }`
        - `type: "table"`(表格型 Part,如分项报价表/资格审查表):`{ type: "table", table_ids: ["t_00N", ...], evidence }`,不填 start_line/end_line
        - 判断准则:打开 tender_brief.json 的 tables 字段,如果目标 Part 的内容已被 pdfplumber 完整提取成表格(headers + rows 匹配 PDF 原表结构),用 table 型;否则 text 型
@@ -728,7 +728,7 @@ AI 在生成"撰写指引"第 9 列时,按以下分类给出**章节结构建议
 
 **目标**:按 `response_file_parts[i].sub_mode` 产出对应形态的 Part 交付物。
 
-**分流依据**:sub_mode 三类(business_model §8 #N20 定义):
+**分流依据**:sub_mode 三类:
 
 - **C-template**:产出 `template.docx` + `variables.yaml` + `intermediate.json` + `filled.docx` 三件套。filled.docx 作为 docx 片段供整标合并器并入主响应文件。
 - **C-reference**:产出 `instructions.md`(YAML front matter + markdown 正文)单文件。由外部系统(电子采购平台)生成 filled 产物,工具链不产 docx 模板。
@@ -766,7 +766,7 @@ sub_mode 判据:filled 产物去向(投标方视角);非判据:项目级 CA / �
 
 - 执行者(Claude Code 等)不得自行修改已产出的 template.docx / filled.docx / instructions.md / intermediate.json。发现问题停下反馈
 - V49bis 允许用户显式决定后修改 variables.yaml 的元信息层(source/path/description/required)
-- sub_mode 字段变更不属元信息层,触发该 Part 完整重做(见 business_model §8 #N19)
+- sub_mode 字段变更不属元信息层,触发该 Part 完整重做
 
 **产物**:
 
@@ -914,7 +914,7 @@ assembled.docx 产出必附 `.pending_marker` 空文件,表示"占位状态,真�
 - **csv_to_xlsx**:scoring_matrix.csv → 评分矩阵.xlsx(首行加粗 + 冻结首行 + 列宽自适应)
 - **md_to_xlsx(主 agent 主动任务)**:operations_checklist.md / pending_manual_work.md 不走 DELIVERABLE_MAPPING 自动转换。主 agent 执行阶段 6 时:(1) 读 md 内容 (2) 按目标 xlsx schema 组织 rows 字典列表 (3) 调 `_write_xlsx_from_rows(dst, headers, rows)` 完成写入。schema 参考: 开标操作清单 = ["序号", "Part 名称", "产物去向", "操作步骤", "注意事项", "完成标记"];待手工填充清单 = ["Part 名称", "对应章节", "待填内容说明", "完成标记"]。此环节体现 skill 哲学: 语义组织交主 agent,机械写入交脚本。
 
-**执行者边界**(business_model §8 #N24):
+**执行者边界**:
 
 - **不得修改工具链内部产出**:交付层是只读消费层,不回写 `output/` / `c_mode/` / `b_mode/` / `final_tender_package/`
 - **不进 tracked_outputs**:交付层每次投标重新生成,不参与 baseline 追踪
