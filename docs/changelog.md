@@ -1,5 +1,39 @@
 # tender-writer 变更日志
 
+## v3.0.0 · 2026-04-30 14 项改进
+
+v3 在 v2.0.x 基础上完成 14 项改进(V3-1 至 V3-14)。详见 [docs/v3_planning.md](v3_planning.md)。
+
+### 主要改进项(V3-1 至 V3-14)
+
+| # | 项 | 核心交付 |
+|---|---|---|
+| V3-1 | B 模式真实 asset 查询 | `CuratedLocalAssetsProvider` 默认走 `assets/<类别>/<company_id>/_raw/` 真实命中,缺省回 placeholder |
+| V3-2 | 测试覆盖扩展 | 测试文件 1 → 12,涵盖 parse_tender / generate_outline / b_mode / c_mode / compliance_check / check_chapter / check_cross_consistency / 等 |
+| V3-3 | timing hook 埋点 | `_timing_hook.stage_timer` 给 7 核心脚本加阶段耗时埋点,产 `_timing_report.md` |
+| V3-4 | 正文级缝合句检测 | `check_chapter.py` 新增滑窗算法(30 字内 ≥6 关键词标 fail / ≥5 警告),抓 AI 写作时关键词堆砌 |
+| V3-5 | --section-only 跳封面/目录 | `compliance_check.py` 加 `--section-only` flag,自动文件名识别 + 显式覆盖 |
+| V3-6 | 扫描版 PDF 检测 + fallback | `parse_tender.py` 自动检测扫描版 PDF(全文平均 < 50 字/页),提供 `--ocr-text <txt>` fallback |
+| V3-7 | Word 直切集成 c_mode_run | c_mode_run 自动分流模板填充 vs 整段直切场景 |
+| V3-8 | docx 字体安全深度检查 | `compliance_check.py` `check_font_safety` 扩到 fontTable.xml 级 warn(白名单 + boilerplate 容忍 + 中文别名归一化 SimSun=宋体)|
+| V3-9 | 跨章节一致性扩充 | `check_cross_consistency.py` 加 3 项:项目名/采购方字段一致性 / 简历 vs 架构图人名一致性 / 章节交叉引用编号有效性 |
+| V3-10 | 五阶段口径统一 | "五阶段" 措辞全仓统一为"五阶段主干 + 并列阶段(4-B/4-C/6)",对齐 `docs/DESIGN.md` ground truth |
+| V3-11 | B 模式 README/SKILL 诚实化 | 措辞从"占位红字"改为"真实 asset 查询 + 占位 fallback",对齐 V3-1 实际能力 |
+| V3-12 | SKILL.md description 精简 | 触发关键词 25 → 10(招标文件/招标公告/投标/技术标/响应文件/评分办法/废标条款/实质性响应/政府采购/竞争性磋商) |
+| V3-13 | demo 重跑工具 | `scripts/demo_reset.py` 提供 demo 项目无破坏重跑标准化路径(默认 dry-run + --yes 执行)|
+| V3-14 | 开源前最终审计(四层结构)| 机器扫(敏感信息/死链/TODO)+ 行为验证(回归/端到端/命令示例/schema 一致)+ 语义一致性(三文件互对/plans/docs)+ 新文件(LICENSE/CONTRIBUTING/README 升级)|
+
+### 关键文件新增
+
+- `docs/DESIGN.md` — 设计哲学(为什么这么设计)
+- `docs/v3_planning.md` — V3 改进路线图 + 完成判定
+- `docs/manifest_schema.md` — manifest.yaml 字段定义
+- `scripts/demo_reset.py` — demo 项目无破坏重跑工具
+- `scripts/tests/test_*.py` — 12 个测试文件全套
+- `plans/v3-*.md` — V3-1 至 V3-14 plan 历史快照(13 份 + V3-14 收尾)
+
+---
+
 ## v2.0.0 · 2026-04-23 首发
 
 v2 在 tender-writer v1.1 基础上经过两轮迭代沉淀而来,包含**项目类型识别、AI 输出规则常驻化、docx 渲染质量总攻、非交互批量化、跨章节一致性检查、工具链 bug 清扫**等十项改进。
