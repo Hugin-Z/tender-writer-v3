@@ -2,6 +2,14 @@
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg) ![Python](https://img.shields.io/badge/Python-3.11%2B-blue) ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey) ![AI](https://img.shields.io/badge/AI-Claude%20Code%20%7C%20Cline-orange)
 
+## 项目状态
+
+**稳定可用(主开发环境)** — v3.0.0 已封板,完成 14 项改进(V3-1 至 V3-14)。Linux / macOS 未验证。
+
+- **测试覆盖**: 12 个测试文件 / `./run_script.bat tests/run_all.py` 全 PASS
+- **demo 项目**: `projects/demo_cadre_training/` 端到端可重跑(parse_tender → ... → export_deliverables 11 步)
+- **主开发环境**: Windows 10+ + Python 3.11,Linux/macOS 未验证
+
 > 把政府类项目技术标的首轮结构化拆解与初稿组装压缩到分钟级;正式投标仍需人工扩写、校核和审稿。
 
 💡 完整端到端流程见 [projects/demo_cadre_training/](projects/demo_cadre_training/),clone 下来跑一遍即知工具链能力边界。
@@ -23,6 +31,18 @@ install.bat
 ```
 
 示范项目位于 [projects/demo_cadre_training/](projects/demo_cadre_training/),Clone 下来即可跑通端到端。
+
+---
+
+## 系统依赖
+
+- **Python**: 3.11+(实测版本;3.10 未做兼容性验证)
+- **OS**: Windows 10+(主开发环境);Linux / macOS 未在 CI 验证,社区贡献欢迎
+- **git**: 必装(`scripts/demo_reset.py` 等运维工具依赖 git CLI)
+- **Python 包**: 8 个核心包(pdfplumber / python-docx / docxtpl / PyYAML / docxcompose / opencc / lxml / pypinyin),完整清单 [requirements.txt](requirements.txt)
+- **可选**: OCR 工具(扫描版 PDF 处理时按需,详见 [docs/FAQ.md Q4](docs/FAQ.md))
+
+依赖通过 `install.bat` 自动装到隔离虚拟环境(`.venv/`),不污染系统 Python。
 
 ---
 
