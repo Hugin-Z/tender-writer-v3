@@ -57,7 +57,9 @@ description: 政府类项目投标文件(技术标)编制专家。当用户上�
    ./run_script.bat parse_tender.py "<招标文件绝对路径>"
    ```
 
-   **重跑保护(V80)**:parse_tender 默认拒绝覆盖已存在的 `output/tender_brief.json`。如果因招标文件更新或逻辑调整需要重跑,加 `--force` 参数。重跑后 extracted 字段回到空骨架,.reviewed 标记失效,需重新走 Step 2A + Step 3 review 流程。不加 --force 时脚本会提示错误并退出。
+   **扫描版 PDF 处理**:parse_tender 自动检测 PDF 字符密度,< 50 字/页判定为扫描版(无内嵌文字流)。命中扫描版时脚本退出并列出 3 条用户处理路径(本地 OCR / 外部 AI / 找原版)。如已用外部工具 OCR 出文本,可加 `--ocr-text <txt路径>` 让 parse_tender 跳过 PDF 文字提取走 fallback 通道。详见 [docs/FAQ.md Q4](docs/FAQ.md)。
+
+   **重跑保护机制**:parse_tender 默认拒绝覆盖已存在的 `output/tender_brief.json`。如果因招标文件更新或逻辑调整需要重跑,加 `--force` 参数。重跑后 extracted 字段回到空骨架,.reviewed 标记失效,需重新走 Step 2A + Step 3 review 流程。不加 --force 时脚本会提示错误并退出。如需在重跑前清干净 demo 项目 output/ 状态(回 HEAD baseline + 保留 .reviewed 标记),用 `./run_script.bat demo_reset.py`(详见 [docs/FAQ.md Q6](docs/FAQ.md))。
 
 2. 脚本会输出:
    - `output/tender_brief.json`:含 `raw_lines_for_ai`(带行号+特征的全文行列表)、`tables`(PDF 中所有表格的二维结构,详见下方)、`section_anchors`(空,待 AI 填)、`extracted`(预算/工期/资质/★▲ + 项目核心字段: project_name / project_number / buyer_name / buyer_agency_name 自动提取)、`part_list_candidates`(Part 清单候选段落,脚本自动生成)、`score_items_raw_positions`(评分项粗位置,首次运行为空,二次运行自动生成)
