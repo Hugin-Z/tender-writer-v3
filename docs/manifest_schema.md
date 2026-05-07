@@ -20,7 +20,7 @@
 
 | 取值 | 说明 |
 |---|---|
-| `placeholder` | `PlaceholderAssetsProvider`,所有 lookup 返回占位 AssetRef,resolve 产占位 docx(V61 基建) |
+| `placeholder` | `PlaceholderAssetsProvider`,所有 lookup 返回占位 AssetRef,resolve 产占位 docx(原 v2 默认行为) |
 | `curated_local` | **V3-1 新增**:`CuratedLocalAssetsProvider`,扫 `assets/<类别>/<company_id>/` 找真实文件 |
 
 ---
@@ -76,7 +76,7 @@
 ## 向后兼容
 
 - `lookup_priority` / `year_filter` 缺省时 `CuratedLocalAssetsProvider` 走默认行为(latest_year_first + 不过滤),旧 manifest 不需回填。
-- `assets_provider` 缺省时 `b_mode_fill.py` 走 `placeholder`,行为与 V61 一致。
+- `assets_provider` 缺省时 `b_mode_fill.py` 走 `placeholder`,行为与 v2 默认一致。
 
 ---
 
