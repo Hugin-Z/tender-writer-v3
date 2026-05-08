@@ -70,3 +70,9 @@ projects/*/投标交付物/
 # 对齐 CLAUDE.md 红线 1"AI 不得代建用户闸门文件"。
 # gitignore 最后匹配规则生效,此行覆盖上方白名单对 .reviewed 的放行。
 projects/demo_cadre_training/**/*.reviewed
+
+# raw.txt 是 b_mode_extract / c_mode_extract 跑 demo 时产生的中间产物
+# (extract 阶段从 PDF/docx 抽出的纯文本),不应入 git。
+# 同样作为 demo 白名单的覆盖规则。
+projects/*/output/b_mode/*/raw.txt
+projects/*/output/c_mode/*/raw.txt
