@@ -1,6 +1,6 @@
 # CLAUDE.md — tender-writer-v3 协作契约
 
-> **当前版本:v2.0.0(2026-04-23),详见 [docs/changelog.md](docs/changelog.md)**
+> **当前版本:v3.0.0(2026-05-08),详见 [docs/changelog.md](docs/changelog.md)**
 >
 > **本文档是任何 AI 代理(Claude Code / Cline / 其他模型)在本仓库工作前的强制前置约束**。与 SKILL.md / references/ 冲突时,本文档优先。
 
@@ -162,3 +162,4 @@ SKILL.md 各阶段开头会引用 `ai_output_rules.md` 的对应规则条目,**�
 ## 变更记录
 
 - 2026-04-23 v2.0.0 首发:6 条根级硬红线对外发布,形成通用协作契约
+- 2026-05-08 v3.0.0:V3 期间精化红线 5 / 6 文案,无新增红线

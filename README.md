@@ -9,6 +9,7 @@
 - **测试覆盖**: 12 个测试文件 / `./run_script.bat tests/run_all.py` 全 PASS
 - **demo 项目**: `projects/demo_cadre_training/` 端到端可重跑(parse_tender → ... → export_deliverables 11 步)
 - **主开发环境**: Windows 10+ + Python 3.11,Linux/macOS 未验证
+- **维护状态**: 个人维护项目, issue / PR 响应可能不及时
 
 > 把政府类项目技术标的首轮结构化拆解与初稿组装压缩到分钟级;正式投标仍需人工扩写、校核和审稿。
 

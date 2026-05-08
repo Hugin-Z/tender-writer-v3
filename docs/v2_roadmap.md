@@ -115,3 +115,16 @@ v2.0.0 首发 + v2.0.1 文档/bug 补丁封板,v2.0.x 不再打补丁。本文�
 | 3 精确耗时埋点 | P26 | 新模块 | 中偏小 | 高(量化依据) |
 
 v2.1+ 启动建议顺序:先做候选 3(有量化基础后再优化),再做候选 1(质量硬指标),候选 2 按"遇到 docx 上游项目"触发。
+
+---
+
+## post-v3.0.0 todo (V4 评估)
+
+V3.0.0 push 后(2026-05-08)外部 audit 抓到的 V4 备查项,V3 已封板不动,V4 启动时评估:
+
+- **companies.yaml own_default 占位措辞合规**: 当前 own_default 字段存在 `__PENDING_USER__` 占位字面,违反 CLAUDE.md 红线 4 (内部术语不外泄到用户产物)。V4 改为对外友好的 `【请填写...】` 系列措辞
+- **V3-14c 批次 4-5 polish**(原 v3_planning.md V3-14 已登记,push 后做):
+  - 批次 4: 整审 V3 期间所有 commit message,看措辞 / 错别字 / 一致性
+  - 批次 5: 整审 scripts/ 顶部 module docstring,看是否准确描述当前行为
+- **V3-13 demo_reset.py scope 扩展**: 当前 TARGET_PATH 仅 `projects/demo_cadre_training/output/`,不含 `投标交付物/` + `final_tender_package/`。V3-14b 端到端测试后 export_deliverables 副作用产出在 投标交付物/,需手工 git restore 还原。V4 评估扩展 TARGET_PATH 或 demo_reset 增 --extended flag
+
