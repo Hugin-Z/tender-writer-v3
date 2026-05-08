@@ -63,7 +63,7 @@ install.bat
 
 **v3.0.0(当前)** — 在 v2.0.x 基础上完成 14 项改进(V3-1 至 V3-14):
 
-- **测试覆盖**:从 1 个测试文件扩到 12 个文件 / ~94 case(parse_tender / build_scoring_matrix / generate_outline / b_mode / c_mode / compliance_check / check_chapter / check_cross_consistency / 等)
+- **测试覆盖**:从 1 个测试文件扩到 12 个文件,涵盖 parse_tender / build_scoring_matrix / generate_outline / b_mode / c_mode / compliance_check / check_chapter / check_cross_consistency 等核心模块
 - **B 模式真实组装**:CuratedLocalAssetsProvider 默认走 `assets/<类别>/<company_id>/_raw/` 真实命中,不再纯占位
 - **合规检查扩展**:V3-2 字体安全(段落级 + fontTable.xml 级)/ V3-4 正文级缝合句作弊检测 / V3-5 --section-only 跳封面目录 / V3-9 跨章节字段一致性 / 简历 vs 架构图人名一致性 / 章节交叉引用编号有效性
 - **扫描版 PDF 处理(V3-6)**:`parse_tender.py` 自动检测扫描版 PDF(全文平均 < 50 字/页),提供 `--ocr-text` fallback 通道(用户外部 OCR 后塞回 txt 走后续解析)
