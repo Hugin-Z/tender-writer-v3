@@ -1,4 +1,4 @@
-# tender-writer-v2
+# tender-writer-v3
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg) ![Python](https://img.shields.io/badge/Python-3.11%2B-blue) ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey) ![AI](https://img.shields.io/badge/AI-Claude%20Code%20%7C%20Cline-orange)
 
@@ -20,8 +20,8 @@
 
 ```bash
 # 1. clone
-git clone https://github.com/Hugin-Z/tender-writer-v2.git
-cd tender-writer-v2
+git clone https://github.com/Hugin-Z/tender-writer-v3.git
+cd tender-writer-v3
 
 # 2. 装依赖(Windows 双击即可)
 install.bat

@@ -1,6 +1,6 @@
 # Demo 项目:A 市直属单位 2026 年度干部综合能力提升培训服务采购
 
-这是 tender-writer-v2 的**端到端演示项目**,供首次使用者理解工具链全流程。
+这是 tender-writer-v3 的**端到端演示项目**,供首次使用者理解工具链全流程。
 
 ## 项目虚构信息
 
@@ -76,7 +76,7 @@ touch projects/demo_cadre_training/output/tender_brief.reviewed
 ```bash
 # 1. 克隆仓库并安装依赖
 git clone <repo-url>
-cd tender-writer-v2
+cd tender-writer-v3
 ./install.bat
 
 # 2. 以 demo 为起点,改造为你自己的项目

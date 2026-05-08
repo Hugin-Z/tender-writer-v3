@@ -1,6 +1,6 @@
 # AI 输出常驻约束(ai_output_rules)
 
-> 本文档是 tender-writer-v2 所有 AI 生成动作的**常驻前置约束**。
+> 本文档是 tender-writer-v3 所有 AI 生成动作的**常驻前置约束**。
 >
 > **适用范围**:阶段 1(tender_brief 解析)、阶段 2(scoring_matrix 撰写指引)、阶段 3(outline)、阶段 4(章节正文)、阶段 4-C(C 模式模板变量描述)、阶段 4-B(B 模式材料描述)。
 >

@@ -1,4 +1,4 @@
-# CLAUDE.md — tender-writer-v2 协作契约
+# CLAUDE.md — tender-writer-v3 协作契约
 
 > **当前版本:v2.0.0(2026-04-23),详见 [docs/changelog.md](docs/changelog.md)**
 >
