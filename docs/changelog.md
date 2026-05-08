@@ -1,5 +1,40 @@
 # tender-writer 变更日志
 
+## v3.0.2 · 2026-05-08 CLI 提示文案对齐(Codex 二次审视 + 扩展扫描)
+
+V3.0.1 发布后 Codex 二次审视抓到 2 项必修代码问题,叠加全脚本 doc-code-consistency
+扩展扫描另外抓到 1 项,三处都是 user-facing print 文案与代码实际控制流不符,对齐 R10
+(诚实化,不夸大)。
+
+| # | 问题 | 修复 |
+|---|---|---|
+| #1 | `parse_tender.py` L803 `--force` 警告误指 ".reviewed 标记因 hash 漂移失效",实际 `ensure_reviewed` 只查文件存在性 | 显式说明 "ensure_reviewed 只检查 .reviewed 文件存在性,不校验 hash,下游会放行空骨架,重跑前请手动删除 .reviewed" |
+| #2 | `v45_merge.py` L364 C-reference 统计是 `merge_order` 声明数,与实际写入成功数脱钩(`instructions.md` 缺失 `continue` 不计) | 主循环维护 `c_ref_written` counter,仅成功路径递增;print 改为 "C-reference: {written}/{declared}(成功写入/声明数量)" |
+| #3 | `demo_reset.py` L131-135 警告误指 ".reviewed 不存在则不能跑 parse_tender",实际 parse_tender 不调 `ensure_reviewed`,`.reviewed` 是下游脚本的闸门 | 显式列出 `build_scoring_matrix / generate_outline / b_mode / c_mode / compliance_check / v45_merge` 等下游脚本会被拦住,parse_tender 不在其中 |
+
+扩展扫描覆盖 33 个 `scripts/*.py`(非测试),逐条核对 `print` / `raise` / `sys.stderr`
+文案 vs 实际控制流,32 个对齐 + 1 个真问题(#3)已含本版本。
+
+实测验证:`./run_script.bat tests/run_all.py` 12 文件全 PASS,无回归。
+
+---
+
+## v3.0.1 · 2026-05-08 缺依赖 + 路径穿越 + 硬编码统计(Codex 外部审视)
+
+V3.0.0 发布后 Codex 外部审视抓到 5 项问题(3 项必修代码 + 2 项文档措辞)。
+
+| # | 问题 | 修复 |
+|---|---|---|
+| #1 | `requirements.txt` 缺 `openpyxl`,`export_deliverables.py` 写 xlsx 在 clean install 后会 ImportError | 加 `openpyxl>=3.1.0` |
+| #2 | SKILL.md 暗示 .reviewed 重跑会"自动失效",实际 `ensure_reviewed` 只查文件存在性 | 明示限制:"⚠️ 当前闸门只检查 .reviewed 文件存在性,不校验 hash,用户必须手动删除标记。hash 校验机制留 V4 实现" |
+| #3 | SKILL.md / README.md B 模式描述暗示完整文档复制(含表格/图片/公章),实际 V3-1 仅文本提取 | README L56 标题加"(当前为文本提取)" + 末尾"表格/图片/公章/扫描件保真留 V4";SKILL L793 加详细限制 + "投标前需手工核对原件" |
+| #4 | `export_deliverables.py` 解析 `args.project` 后无校验直接拼路径,`--project ../../../etc` 可逃逸到 `projects/` 之外 | `args.project` 必须是单个目录名,不含 `..` `/` `\`,否则 `sys.exit(1)`(注:用户原 plan 写 `startswith("projects/")` 不适用,改为更准确的 `..` + 路径分隔符 双重检查) |
+| #5 | `v45_merge.py` 写死 "C-reference: 1",与实际项目 sub_mode 数量脱钩 | 改为 `sum(1 for ... if kind == 'c_reference')` 真实统计(后 V3.0.2 #2 进一步精化为 written/declared 对比) |
+
+实测验证:`./run_script.bat tests/run_all.py` 12 文件全 PASS,无回归。
+
+---
+
 ## v3.0.0 · 2026-04-30 14 项改进
 
 v3 在 v2.0.x 基础上完成 14 项改进(V3-1 至 V3-14)。详见 [docs/v3_planning.md](v3_planning.md)。
