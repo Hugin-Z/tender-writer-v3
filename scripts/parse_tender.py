@@ -803,7 +803,9 @@ def _main_body(args):
         print(
             f"[警告] --force 模式: 将覆盖已存在的 {json_path}\n"
             f"  extracted 字段会重置为空骨架,需要 AI 重新填充并由用户重新 review。\n"
-            f"  .reviewed 标记因 hash 漂移失效,下游脚本将被 ensure_reviewed 拦住直到重新 review。",
+            f"  ⚠️ 当前 ensure_reviewed 闸门只检查 .reviewed 文件存在性,不校验 hash,\n"
+            f"     下游脚本仍会放行使用空骨架数据。\n"
+            f"  重跑前请手动删除 output/tender_brief.reviewed 标记,完成新一轮 review 后重建。",
             file=sys.stderr,
         )
 

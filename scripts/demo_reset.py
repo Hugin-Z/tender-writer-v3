@@ -131,7 +131,10 @@ def main():
     if not reviewed.exists():
         print(
             f"[警告] .reviewed 标记不存在 ({reviewed}),"
-            f"需用户手动建后才能跑 parse_tender。"
+            f"parse_tender 仍可跑(它不检查 .reviewed),但下游脚本"
+            f"(build_scoring_matrix / generate_outline / b_mode / c_mode / "
+            f"compliance_check / v45_merge 等)会被 ensure_reviewed 闸门拦住。"
+            f"完成新一轮 review 后请手动建 .reviewed 标记。"
         )
     else:
         print(f"[确认] .reviewed 标记存在 ({reviewed})")

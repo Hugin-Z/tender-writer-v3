@@ -255,6 +255,7 @@ def _main_body(args, project_dir):
     merge_order = build_merge_order(brief)
     print(f"[信息] 动态生成合并顺序(共 {len(merge_order)} 项,"
           f"来源:tender_brief.response_file_parts)", file=sys.stderr)
+    c_ref_written = 0
     for part_idx, kind, title in merge_order:
         part = _get_part(brief, part_idx)
         part_name = part.get('name') if part else title
@@ -276,6 +277,7 @@ def _main_body(args, project_dir):
             section = _render_c_reference_section(part, instructions)
             operations_lines.append(section)
             operations_lines.append('')
+            c_ref_written += 1
             print(f"[信息] {title} → operations_checklist.md(不进 final_response.docx)")
 
         elif kind == 'b_mode':
@@ -362,9 +364,9 @@ def _main_body(args, project_dir):
     print(f"  pending_manual_work.md:     {pending_path}"
           f" ({pending_path.stat().st_size:,} bytes)")
     print(f"  合并片段数:   {len(fragment_paths)}")
-    # v3.0.1: 从 merge_order 实际统计,不硬编码
-    c_ref_count = sum(1 for _, kind, _ in merge_order if kind == 'c_reference')
-    print(f"  C-reference: {c_ref_count}(转 operations_checklist.md)")
+    # v3.0.2: 区分声明数 vs 实际写入数,缺失能立即识别
+    c_ref_declared = sum(1 for _, kind, _ in merge_order if kind == 'c_reference')
+    print(f"  C-reference: {c_ref_written}/{c_ref_declared}(成功写入/声明数量)")
     print(f"  待人工填充:   {len(pending_entries)}(见 pending_manual_work.md)")
     print("=" * 60)
 
