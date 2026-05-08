@@ -362,7 +362,9 @@ def _main_body(args, project_dir):
     print(f"  pending_manual_work.md:     {pending_path}"
           f" ({pending_path.stat().st_size:,} bytes)")
     print(f"  合并片段数:   {len(fragment_paths)}")
-    print(f"  C-reference: 1(转 operations_checklist.md)")
+    # v3.0.1: 从 merge_order 实际统计,不硬编码
+    c_ref_count = sum(1 for _, kind, _ in merge_order if kind == 'c_reference')
+    print(f"  C-reference: {c_ref_count}(转 operations_checklist.md)")
     print(f"  待人工填充:   {len(pending_entries)}(见 pending_manual_work.md)")
     print("=" * 60)
 

@@ -228,6 +228,17 @@ def main():
                         help='仅打印映射表,不实际导出')
     args = parser.parse_args()
 
+    # v3.0.1 路径穿越防护: project 必须是单个目录名(脚本会拼到
+    # ROOT/projects/<args.project>),不允许含 .. 或路径分隔符,
+    # 否则可能逃逸到 projects/ 之外的目录
+    if ".." in args.project or "/" in args.project or "\\" in args.project:
+        print(
+            f"[错误] --project 必须是单个目录名,不允许含 '..' 或路径分隔符 '/' '\\\\'。"
+            f"got {args.project!r}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     project_dir = ROOT / 'projects' / args.project
 
     # V3-3: timing hook

@@ -10,3 +10,4 @@ pypinyin>=0.50.0                # 中文公司名转拼音(add_company.py 生成
 docxtpl>=0.16                   # Word docx 模板填充(C 模式 Part 的变量渲染)
 PyYAML>=6.0                     # yaml 读写(C 模式 variables.yaml / companies.yaml)
 docxcompose>=1.4                # docx 文件合并(V45 整标合并器)
+openpyxl>=3.1.0                 # xlsx 写入(阶段 6 export_deliverables 把 csv 转 xlsx)
