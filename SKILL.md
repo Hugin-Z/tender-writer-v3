@@ -59,7 +59,7 @@ description: 政府类项目投标文件(技术标)编制专家。当用户上�
 
    **扫描版 PDF 处理**:parse_tender 自动检测 PDF 字符密度,< 50 字/页判定为扫描版(无内嵌文字流)。命中扫描版时脚本退出并列出 3 条用户处理路径(本地 OCR / 外部 AI / 找原版)。如已用外部工具 OCR 出文本,可加 `--ocr-text <txt路径>` 让 parse_tender 跳过 PDF 文字提取走 fallback 通道。详见 [docs/FAQ.md Q4](docs/FAQ.md)。
 
-   **重跑保护机制**:parse_tender 默认拒绝覆盖已存在的 `output/tender_brief.json`。如果因招标文件更新或逻辑调整需要重跑,加 `--force` 参数。重跑后 extracted 字段回到空骨架,.reviewed 标记失效,需重新走 Step 2A + Step 3 review 流程。不加 --force 时脚本会提示错误并退出。如需在重跑前清干净 demo 项目 output/ 状态(回 HEAD baseline + 保留 .reviewed 标记),用 `./run_script.bat demo_reset.py`(详见 [docs/FAQ.md Q6](docs/FAQ.md))。
+   **重跑保护机制**:parse_tender 默认拒绝覆盖已存在的 `output/tender_brief.json`。如果因招标文件更新或逻辑调整需要重跑,加 `--force` 参数。重跑后 extracted 字段回到空骨架。⚠️ 当前 `ensure_reviewed` 闸门只检查 `.reviewed` 文件存在性,**不校验 hash**,因此**用户必须手动删除 `.reviewed` 标记**,否则下游脚本仍会放行使用空骨架数据。hash 校验机制留 V4 实现。不加 --force 时脚本会提示错误并退出。如需在重跑前清干净 demo 项目 output/ 状态(回 HEAD baseline + 保留 .reviewed 标记),用 `./run_script.bat demo_reset.py`(详见 [docs/FAQ.md Q6](docs/FAQ.md))。
 
 2. 脚本会输出:
    - `output/tender_brief.json`:含 `raw_lines_for_ai`(带行号+特征的全文行列表)、`tables`(PDF 中所有表格的二维结构,详见下方)、`section_anchors`(空,待 AI 填)、`extracted`(预算/工期/资质/★▲ + 项目核心字段: project_name / project_number / buyer_name / buyer_agency_name 自动提取)、`part_list_candidates`(Part 清单候选段落,脚本自动生成)、`score_items_raw_positions`(评分项粗位置,首次运行为空,二次运行自动生成)
@@ -790,7 +790,7 @@ sub_mode 判据:filled 产物去向(投标方视角);非判据:项目级 CA / �
 **分流依据**:`manifest.yaml` 中 AI 判定的 `assembly_order[i].source_type`(三类参考值):
 
 - **inline_template**:招标文件给模板 + 变量占位(如基本情况表、信誉声明) → 当前产占位段落,未来由 b_mode_fill 自动调 c_mode_fill 完成填充(留 V4)
-- **asset_lookup**:从 assets 库查供应商素材(如资质证明、业绩合同) → 走 `AssetsProvider.lookup + resolve`;V3-1 起 `CuratedLocalAssetsProvider` 默认扫 `assets/<类别>/<company_id>/_raw/` 真实命中,缺省走 `PlaceholderAssetsProvider` 占位
+- **asset_lookup**:从 assets 库查供应商素材(如资质证明、业绩合同) → 走 `AssetsProvider.lookup + resolve`;V3-1 起 `CuratedLocalAssetsProvider` 默认扫 `assets/<类别>/<company_id>/_raw/` 真实命中,缺省走 `PlaceholderAssetsProvider` 占位。⚠️ 当前实现**仅提取段落文本**插入 assembled.docx,**表格 / 图片 / 公章 / 扫描件保真留 V4**——业绩合同 / 资质证书的关键格式(签章位置、表格结构、图片证据)无法保留,使用者投标前需手工核对原件
 - **self_drafted**:供应商自撰(如开放资料) → 产占位段落 "[本节需供应商自撰: <title>]"
 
 AI 遇到新形态可自造 source_type 值;b_mode_fill 遇未知值 raise ValueError 由用户 review 决定是否扩展工具链。
