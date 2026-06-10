@@ -1,15 +1,18 @@
 # tender-writer-v3
 
+> [!WARNING]
+> **本仓库已停止维护**,最新活跃版本见 [Hugin-Z/tender-writer-v4](https://github.com/Hugin-Z/tender-writer-v4)。
+
 ![License](https://img.shields.io/badge/License-MIT-blue.svg) ![Python](https://img.shields.io/badge/Python-3.11%2B-blue) ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey) ![AI](https://img.shields.io/badge/AI-Claude%20Code%20%7C%20Cline-orange)
 
 ## 项目状态
 
-**稳定可用(主开发环境)** — v3.0.0 已封板,完成 14 项改进(V3-1 至 V3-14)。Linux / macOS 未验证。
+**已封板归档,后续演进在 [tender-writer-v4](https://github.com/Hugin-Z/tender-writer-v4)** — v3.0.0 完成 14 项改进(V3-1 至 V3-14),作历史归档保留。Linux / macOS 未验证。
 
 - **测试覆盖**: 12 个测试文件 / `./run_script.bat tests/run_all.py` 全 PASS
 - **demo 项目**: `projects/demo_cadre_training/` 端到端可重跑(parse_tender → ... → export_deliverables 11 步)
 - **主开发环境**: Windows 10+ + Python 3.11,Linux/macOS 未验证
-- **维护状态**: 个人维护项目, issue / PR 响应可能不及时
+- **维护状态**: 已归档不再维护,issue / PR 请移步 [tender-writer-v4](https://github.com/Hugin-Z/tender-writer-v4)
 
 > 把政府类项目技术标的首轮结构化拆解与初稿组装压缩到分钟级;正式投标仍需人工扩写、校核和审稿。
 
